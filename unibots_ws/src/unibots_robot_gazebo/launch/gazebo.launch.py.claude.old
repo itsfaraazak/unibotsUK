@@ -1,0 +1,106 @@
+"""
+Gazebo Jetty + ROS2 Lyrical launch file for unibots_robot_gazebo
+Uses ros_gz_sim (NOT gazebo_ros — that's Classic only, EOL Jan 2025)
+
+Install deps first:
+  sudo apt install ros-lyrical-ros-gz ros-lyrical-ros-gz-sim ros-lyrical-ros-gz-bridge
+
+Usage:
+  ros2 launch unibots_robot_gazebo gazebo.launch.py
+"""
+import os
+from ament_index_python.packages import get_package_share_directory
+from launch import LaunchDescription
+from launch.actions import IncludeLaunchDescription, TimerAction
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import Command, PathJoinSubstitution
+from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
+
+from launch_ros.parameter_descriptions import ParameterValue
+
+def generate_launch_description():
+    pkg = get_package_share_directory('unibots_robot_gazebo')
+    xacro_file = os.path.join(pkg, 'urdf', 'robot.xacro')
+    world_file = os.path.join(pkg, 'worlds', 'unibots_arena.world')
+
+    robot_description = Command(['xacro ', xacro_file])
+
+    # 1. Start Gazebo Jetty with the arena world
+    gazebo = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([
+            PathJoinSubstitution([
+                FindPackageShare('ros_gz_sim'),
+                'launch', 'gz_sim.launch.py'
+            ])
+        ]),
+        launch_arguments={
+            'gz_args': [world_file, ' -r'],  # -r = start running immediately
+            'on_exit_shutdown': 'true',
+        }.items(),
+    )
+
+    # 2. Publish robot description (URDF/XACRO → /robot_description topic)
+    robot_state_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        name='robot_state_publisher',
+        output='screen',
+        parameters=[{
+            'robot_description': ParameterValue(robot_description, value_type=str),
+            'use_sim_time': True
+        }],
+    )
+
+    # 3. Spawn robot into Gazebo from /robot_description topic
+    #    Delayed 3s to give Gazebo time to start
+    spawn_robot = TimerAction(
+        period=3.0,
+        actions=[
+            Node(
+                package='ros_gz_sim',
+                executable='create',
+                name='spawn_robot',
+                arguments=[
+                    '-name', 'unibots_robot',
+                    '-topic', 'robot_description',
+                    '-x', '0.0',
+                    '-y', '-0.85',   # south starting zone (rule 1.6.2)
+                    '-z', '0.05',
+                    '-Y', '0.0',     # facing north (+X forward)
+                ],
+                output='screen',
+            )
+        ]
+    )
+
+    # 4. ROS ↔ Gazebo bridge (cmd_vel, odom, camera, imu)
+    gz_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        name='gz_bridge',
+        arguments=[
+            # Drive
+            '/unibots/cmd_vel@geometry_msgs/msg/Twist@gz.msgs.Twist',
+            '/unibots/odom@nav_msgs/msg/Odometry@gz.msgs.Odometry',
+            # IMU
+            '/unibots/imu/data@sensor_msgs/msg/Imu@gz.msgs.IMU',
+            # Camera
+            '/unibots/camera/image_raw@sensor_msgs/msg/Image@gz.msgs.Image',
+            '/unibots/camera/camera_info@sensor_msgs/msg/CameraInfo@gz.msgs.CameraInfo',
+            # Clock (sim time)
+            '/clock@rosgraph_msgs/msg/Clock@gz.msgs.Clock',
+            # TF
+            '/tf@tf2_msgs/msg/TFMessage@gz.msgs.Pose_V',
+            '/tf_static@tf2_msgs/msg/TFMessage@gz.msgs.Pose_V',
+        ],
+        parameters=[{'use_sim_time': True}],
+        output='screen',
+    )
+
+    return LaunchDescription([
+        gazebo,
+        robot_state_publisher,
+        spawn_robot,
+        gz_bridge,
+    ])

@@ -1,0 +1,255 @@
+<?xml version="1.0"?>
+<!--
+  Unibots UK 2025-26 · UniDesign2 — v3 (FIXED)
+  ─────────────────────────────────────────────
+  FIX 1 (exploded view): ALL structural STLs now live inside ONE
+  base_link as multiple <visual> elements. They were exported from
+  the same Fusion assembly, so they share one coordinate system —
+  a single uniform offset places everything exactly as assembled.
+  No per-part joint math = nothing can explode.
+
+  FIX 2 (TF spikes): far fewer links → far fewer TF axes in RViz.
+  (Also: in RViz, untick "TF" display or shrink its Marker Scale —
+  those giant red/green/blue cylinders were TF axis markers.)
+
+  FIX 3 (wheels): real mecanum wheel meshes with 45° rollers,
+  correct chirality (X-pattern: FL/BR = type A, FR/BL = type B).
+
+  base_link origin: centre of the 4 wheel axles,
+  Fusion point (60, 18.8, 13.8) mm. Ground is ~12.5 mm below origin.
+-->
+<robot name="unibots_robot_gazebo" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:property name="PI"  value="3.14159265358979"/>
+  <xacro:property name="ms"  value="0.001 0.001 0.001"/>
+  <!-- Uniform offset: moves Fusion point (60, 18.8, 13.8)mm to link origin -->
+  <xacro:property name="mox" value="-0.060 -0.0188 -0.0138"/>
+
+  <!-- Mecanum wheels (real asymmetric positions from motor mount STL centres) -->
+  <xacro:property name="w_r"    value="0.030"/>
+  <xacro:property name="w_w"    value="0.025"/>
+  <xacro:property name="w_mass" value="0.100"/>
+  <xacro:property name="w_z"    value="0.0162"/>  <!-- wheel centre: ground+radius-base_cz = 16.2mm -->
+  <!-- Wheel axle positions: outside chassis edges (X: -15 to 135mm) + wheel_width/2 -->
+  <xacro:property name="w_x_left"   value="-0.0875"/>  <!-- left of chassis:  X=-27.5mm rel base -->
+  <xacro:property name="w_x_right"  value=" 0.0875"/>  <!-- right of chassis: X=+87.5mm rel base -->
+  <xacro:property name="w_y_front"  value="-0.0398"/>  <!-- front (toward ramp): -39.8mm -->
+  <xacro:property name="w_y_back"   value=" 0.0550"/>  <!-- back: +55.0mm -->
+
+  <material name="red">   <color rgba="0.80 0.10 0.10 1"/></material>
+  <material name="orange"><color rgba="0.95 0.55 0.00 1"/></material>
+  <material name="yellow"><color rgba="0.95 0.80 0.00 1"/></material>
+  <material name="green"> <color rgba="0.10 0.70 0.10 1"/></material>
+  <material name="blue">  <color rgba="0.10 0.20 0.80 1"/></material>
+  <material name="grey">  <color rgba="0.55 0.55 0.55 1"/></material>
+  <material name="white"> <color rgba="0.90 0.90 0.90 1"/></material>
+  <material name="black"> <color rgba="0.15 0.15 0.15 1"/></material>
+
+  <xacro:macro name="box_inertia" params="m x y z">
+    <inertial>
+      <mass value="${m}"/>
+      <inertia ixx="${m*(y*y+z*z)/12}" ixy="0" ixz="0"
+               iyy="${m*(x*x+z*z)/12}" iyz="0"
+               izz="${m*(x*x+y*y)/12}"/>
+    </inertial>
+  </xacro:macro>
+
+  <!-- shorthand: one structural mesh inside base_link -->
+  <xacro:macro name="part" params="mesh mat">
+    <visual>
+      <geometry>
+        <mesh filename="package://unibots_robot_gazebo/meshes/${mesh}" scale="${ms}"/>
+      </geometry>
+      <origin xyz="${mox}" rpy="0 0 0"/>
+      <material name="${mat}"/>
+    </visual>
+  </xacro:macro>
+
+  <!-- ════════════════ base_footprint (ground) ════════════════ -->
+  <link name="base_footprint"/>
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child  link="base_link"/>
+    <origin xyz="0 0 0.0125" rpy="0 0 ${-PI/2}"/>
+  </joint>
+
+  <!-- ════════════════ BASE LINK — whole chassis ════════════════ -->
+  <link name="base_link">
+
+    <!-- Plates -->
+    <xacro:part mesh="bottom_plate_updated_1_Body4.stl" mat="red"/>
+    <xacro:part mesh="top_plate_updated_1_Body3.stl"    mat="red"/>
+
+    <!-- Columns -->
+    <xacro:part mesh="column_extruded_1_Body1.stl"    mat="yellow"/>
+    <xacro:part mesh="column_extruded_1_Body2.stl"    mat="white"/>
+    <xacro:part mesh="column_extruded_2_Body1.stl"    mat="yellow"/>
+    <xacro:part mesh="column_extruded_2_Body2.stl"    mat="white"/>
+    <xacro:part mesh="column_NONextruded_1_Body3.stl" mat="yellow"/>
+    <xacro:part mesh="column_NONextruded_2_Body3.stl" mat="yellow"/>
+
+    <!-- Middle supports -->
+    <xacro:part mesh="middle_support_1_Body2.stl" mat="grey"/>
+    <xacro:part mesh="middle_support_2_Body2.stl" mat="grey"/>
+    <xacro:part mesh="middle_support_3_Body2.stl" mat="grey"/>
+
+    <!-- Motor supports (all 12 bodies) -->
+    <xacro:part mesh="new_motor_support_fr_1_Body1.stl" mat="orange"/>
+    <xacro:part mesh="new_motor_support_fr_1_Body2.stl" mat="orange"/>
+    <xacro:part mesh="new_motor_support_fr_1_Body3.stl" mat="orange"/>
+    <xacro:part mesh="new_motor_support_fr_2_Body1.stl" mat="orange"/>
+    <xacro:part mesh="new_motor_support_fr_2_Body2.stl" mat="orange"/>
+    <xacro:part mesh="new_motor_support_fr_2_Body3.stl" mat="orange"/>
+    <xacro:part mesh="new_motor_support_br_1_Body4.stl" mat="orange"/>
+    <xacro:part mesh="new_motor_support_br_1_Body5.stl" mat="orange"/>
+    <xacro:part mesh="new_motor_support_br_1_Body6.stl" mat="orange"/>
+    <xacro:part mesh="new_motor_support_br_2_Body4.stl" mat="orange"/>
+    <xacro:part mesh="new_motor_support_br_2_Body5.stl" mat="orange"/>
+    <xacro:part mesh="new_motor_support_br_2_Body6.stl" mat="orange"/>
+
+    <!-- Storage -->
+    <xacro:part mesh="Main_Storage_1_Body1.stl"       mat="grey"/>
+    <xacro:part mesh="Battery_Storage_1_Body2.stl"    mat="blue"/>
+    <xacro:part mesh="Additional_Storage_1_Body1.stl" mat="grey"/>
+
+    <!-- Ramp / claw / servo / handle -->
+    <xacro:part mesh="Ramp_1_Body1.stl"             mat="green"/>
+    <xacro:part mesh="claw_1_Body2.stl"             mat="black"/>
+    <xacro:part mesh="Servo_Holder_1_Body1.stl"     mat="grey"/>
+    <xacro:part mesh="Servo_Holder_CAP_1_Body1.stl" mat="grey"/>
+    <xacro:part mesh="handle_1_Body2.stl"           mat="black"/>
+
+    <!-- Tilted platform (all bodies) -->
+    <xacro:part mesh="Platform_tilted_1_Body1.stl" mat="grey"/>
+    <xacro:part mesh="Platform_tilted_1_Body2.stl" mat="grey"/>
+    <xacro:part mesh="Platform_tilted_1_Body5.stl" mat="grey"/>
+    <xacro:part mesh="Platform_tilted_1_Body6.stl" mat="grey"/>
+    <xacro:part mesh="Platform_tilted_1_Body7.stl" mat="grey"/>
+    <xacro:part mesh="Platform_tilted_1_Body8.stl" mat="grey"/>
+    <xacro:part mesh="Platform_tilted_1_Body9.stl" mat="grey"/>
+
+    <!-- ONE collision box for the whole robot (190×190×200 mm envelope) -->
+    <collision>
+      <geometry><box size="0.190 0.190 0.190"/></geometry>
+      <origin xyz="0 0 0.090" rpy="0 0 0"/>
+    </collision>
+
+    <xacro:box_inertia m="1.2" x="0.19" y="0.19" z="0.19"/>
+  </link>
+  <gazebo reference="base_link"><material>Gazebo/Red</material></gazebo>
+
+  <!-- ════════════════ MECANUM WHEELS ════════════════
+       X-pattern (top view):  type A rollers on FL & BR,
+                              type B rollers on FR & BL  -->
+  <xacro:macro name="mecanum" params="prefix x y mesh">
+    <link name="${prefix}_wheel">
+      <visual>
+        <geometry>
+          <mesh filename="package://unibots_robot_gazebo/meshes/${mesh}" scale="${ms}"/>
+        </geometry>
+        <origin xyz="0 0 0" rpy="0 0 ${PI/2}"/>
+        <material name="yellow"/>
+      </visual>
+      <collision>
+        <!-- physics still uses a cylinder: rollers as collision = unstable -->
+        <geometry><cylinder radius="${w_r}" length="${w_w}"/></geometry>
+        <origin xyz="0 0 0" rpy="0 ${PI/2} 0"/>
+      </collision>
+      <inertial>
+        <mass value="${w_mass}"/>
+        <inertia ixx="${w_mass*(3*w_r*w_r+w_w*w_w)/12}" ixy="0" ixz="0"
+                 iyy="${w_mass*w_r*w_r/2}" iyz="0"
+                 izz="${w_mass*(3*w_r*w_r+w_w*w_w)/12}"/>
+      </inertial>
+    </link>
+    <joint name="${prefix}_wheel_joint" type="continuous">
+      <parent link="base_link"/>
+      <child  link="${prefix}_wheel"/>
+      <origin xyz="${x} ${y} ${w_z}" rpy="0 0 0"/>
+      <axis xyz="1 0 0"/>
+      <dynamics damping="0.01" friction="0.05"/>
+    </joint>
+    <gazebo reference="${prefix}_wheel">
+      <mu1>1.0</mu1><mu2>0.0</mu2>   <!-- low lateral friction ≈ mecanum slip -->
+      <material>Gazebo/Yellow</material>
+    </gazebo>
+  </xacro:macro>
+
+  <!-- NOTE: Fusion +Y is robot-forward (toward ramp). We keep Fusion axes,
+       so "front" wheels are +Y here. If you prefer ROS X-forward, add a
+       rotated base frame later — geometry stays identical. -->
+  <!-- X-pattern mecanum: FL+BR = type A rollers, FR+BL = type B rollers -->
+  <xacro:mecanum prefix="front_left"  x="${w_x_left}"  y="${w_y_front}" mesh="mecanum_wheel_A.stl"/>
+  <xacro:mecanum prefix="front_right" x="${w_x_right}" y="${w_y_front}" mesh="mecanum_wheel_B.stl"/>
+  <xacro:mecanum prefix="back_left"   x="${w_x_left}"  y="${w_y_back}"  mesh="mecanum_wheel_B.stl"/>
+  <xacro:mecanum prefix="back_right"  x="${w_x_right}" y="${w_y_back}"  mesh="mecanum_wheel_A.stl"/>
+
+  <!-- ════════════════ CAMERA + IMU frames ════════════════ -->
+  <link name="camera_link">
+    <visual>
+      <geometry><box size="0.02 0.02 0.02"/></geometry>
+      <material name="black"/>
+    </visual>
+    <xacro:box_inertia m="0.03" x="0.02" y="0.02" z="0.02"/>
+  </link>
+  <joint name="camera_joint" type="fixed">
+    <parent link="base_link"/>
+    <child  link="camera_link"/>
+    <!-- on the tilted platform, looking forward (+Y) and slightly down -->
+    <origin xyz="0 0.045 0.160" rpy="0 0.26 ${PI/2}"/>
+  </joint>
+
+  <link name="imu_link"/>
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child  link="imu_link"/>
+    <origin xyz="0 0 0.01" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ════════════════ GAZEBO PLUGINS ════════════════ -->
+  <gazebo reference="camera_link">
+    <sensor name="camera" type="camera">
+      <always_on>true</always_on>
+      <update_rate>30</update_rate>
+      <camera>
+        <horizontal_fov>1.396</horizontal_fov>
+        <image><width>640</width><height>480</height><format>R8G8B8</format></image>
+        <clip><near>0.02</near><far>5.0</far></clip>
+      </camera>
+      <plugin name="camera_plugin" filename="libgazebo_ros_camera.so">
+        <ros><namespace>/unibots</namespace></ros>
+        <frame_name>camera_link</frame_name>
+      </plugin>
+    </sensor>
+  </gazebo>
+
+  <gazebo reference="imu_link">
+    <sensor name="imu_sensor" type="imu">
+      <always_on>true</always_on>
+      <update_rate>100</update_rate>
+      <plugin name="imu_plugin" filename="libgazebo_ros_imu_sensor.so">
+        <ros>
+          <namespace>/unibots</namespace>
+          <remapping>~/out:=imu/data</remapping>
+        </ros>
+      </plugin>
+    </sensor>
+  </gazebo>
+
+  <gazebo>
+    <plugin name="mecanum_drive" filename="libgazebo_ros_planar_move.so">
+      <ros>
+        <namespace>/unibots</namespace>
+        <remapping>cmd_vel:=cmd_vel</remapping>
+        <remapping>odom:=odom</remapping>
+      </ros>
+      <update_rate>100</update_rate>
+      <publish_rate>20</publish_rate>
+      <robot_base_frame>base_link</robot_base_frame>
+      <publish_odom>true</publish_odom>
+      <publish_odom_tf>true</publish_odom_tf>
+      <odometry_frame>odom</odometry_frame>
+    </plugin>
+  </gazebo>
+
+</robot>

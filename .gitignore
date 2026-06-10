@@ -1,0 +1,67 @@
+# Colcon build outputs — never commit these
+build/
+install/
+log/
+
+# Container internals that distrobox writes into home
+.local/
+.config/
+.cache/
+.ros/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Trained model weights — too large for git (use Git LFS or keep separate)
+*.pt
+*.onnx
+*.hef
+
+# RViz session files (auto-generated, not useful to commit)
+*.rviz
+
+
+**/.ssh/
+**/.gnupg/
+**/.aws/
+**/.kube/
+**/.docker/
+**/.npmrc
+**/.gem/credentials
+**/.pypirc
+*.pem
+*.key
+*.pub
+*.pfx
+*.secret
+.env*
+.netrc
+
+# --- SYSTEM & OS TRASH ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+$RECYCLE.BIN/
+.Trash/
+**/*.tmp
+**/*.bak
+**/*.swp
+**/*.swo
+**/*~
+
+.bash_history
+.bash_logout
+.bashrc
+
+.profile
+.profile
+.rviz2/
+.sdformat/
+
+
