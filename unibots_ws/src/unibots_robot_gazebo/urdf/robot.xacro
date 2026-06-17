@@ -206,50 +206,60 @@
     <origin xyz="0 0 0.01" rpy="0 0 0"/>
   </joint>
 
-  <!-- ════════════════ GAZEBO PLUGINS ════════════════ -->
+ <!-- ════════════════ GAZEBO (JETTY / gz-sim) PLUGINS ════════════════ -->
+
+  <!-- CAMERA: sensor definition stays here; the rendering is done by the
+       gz-sim-sensors-system plugin which MUST be in the WORLD file (see note).
+       Gazebo publishes on gz topic /unibots/camera/image_raw automatically
+       from the <topic> below, which your ros_gz_bridge already bridges. -->
   <gazebo reference="camera_link">
     <sensor name="camera" type="camera">
       <always_on>true</always_on>
       <update_rate>30</update_rate>
+      <topic>/unibots/camera/image_raw</topic>
+      <gz_frame_id>camera_link</gz_frame_id>
       <camera>
         <horizontal_fov>1.396</horizontal_fov>
         <image><width>640</width><height>480</height><format>R8G8B8</format></image>
         <clip><near>0.02</near><far>5.0</far></clip>
       </camera>
-      <plugin name="camera_plugin" filename="libgazebo_ros_camera.so">
-        <ros><namespace>/unibots</namespace></ros>
-        <frame_name>camera_link</frame_name>
-      </plugin>
     </sensor>
   </gazebo>
 
+  <!-- IMU: sensor stays; the gz-sim-imu-system plugin goes in the WORLD file.
+       Publishes on gz topic /unibots/imu/data, which the bridge forwards. -->
   <gazebo reference="imu_link">
     <sensor name="imu_sensor" type="imu">
       <always_on>true</always_on>
       <update_rate>100</update_rate>
-      <plugin name="imu_plugin" filename="libgazebo_ros_imu_sensor.so">
-        <ros>
-          <namespace>/unibots</namespace>
-          <remapping>~/out:=imu/data</remapping>
-        </ros>
-      </plugin>
+      <topic>/unibots/imu/data</topic>
+      <gz_frame_id>imu_link</gz_frame_id>
     </sensor>
   </gazebo>
 
+  <!-- DRIVE: native gz mecanum drive. Consumes Twist on /unibots/cmd_vel,
+       publishes Odometry on /unibots/odom + the odom->base_link TF.
+       Wheel joint names and geometry below MUST match the joints above. -->
   <gazebo>
-    <plugin name="mecanum_drive" filename="libgazebo_ros_planar_move.so">
-      <ros>
-        <namespace>/unibots</namespace>
-        <remapping>cmd_vel:=cmd_vel</remapping>
-        <remapping>odom:=odom</remapping>
-      </ros>
-      <update_rate>100</update_rate>
-      <publish_rate>20</publish_rate>
-      <robot_base_frame>base_link</robot_base_frame>
-      <publish_odom>true</publish_odom>
-      <publish_odom_tf>true</publish_odom_tf>
-      <odometry_frame>odom</odometry_frame>
+    <plugin filename="gz-sim-mecanum-drive-system"
+            name="gz::sim::systems::MecanumDrive">
+      <front_left_joint>front_left_wheel_joint</front_left_joint>
+      <front_right_joint>front_right_wheel_joint</front_right_joint>
+      <back_left_joint>back_left_wheel_joint</back_left_joint>
+      <back_right_joint>back_right_wheel_joint</back_right_joint>
+
+      <!-- wheel separations (m): centre-to-centre -->
+      <wheel_separation>0.175</wheel_separation>      <!-- |w_x_right - w_x_left| = 0.175 -->
+      <wheelbase>0.0948</wheelbase>                   <!-- |w_y_front - w_y_back| = 0.0948 -->
+      <wheel_radius>0.030</wheel_radius>
+
+      <topic>/unibots/cmd_vel</topic>
+      <odom_topic>/unibots/odom</odom_topic>
+      <tf_topic>/tf</tf_topic>
+      <frame_id>odom</frame_id>
+      <child_frame_id>base_link</child_frame_id>
+      <odom_publish_frequency>50</odom_publish_frequency>
     </plugin>
   </gazebo>
 
-</robot>
+</robot> 

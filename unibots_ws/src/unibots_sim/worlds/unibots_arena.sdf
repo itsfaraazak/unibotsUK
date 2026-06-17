@@ -1,0 +1,383 @@
+<?xml version="1.0" ?>
+<!--
+  unibots_sim / worlds/unibots_arena.sdf
+  =======================================================================
+  Gazebo Harmonic SDF world for the Unibots UK 2026 mecanum competition.
+
+  ARENA SPEC (all dimensions in metres):
+    - 2.0 x 2.0 m square arena, white foam-tile floor.
+    - South-West (SW) corner of the arena is at the world origin (0, 0).
+      Therefore the playable area spans  x in [0, 2],  y in [0, 2].
+    - Four perimeter walls, each 2.0 long x 0.15 tall x 0.02 thick, placed
+      along the arena edges, colour-coded for camera localisation:
+          North wall (y = 2.0)  -> YELLOW  RGB(1.0, 0.9, 0.0)
+          East  wall (x = 2.0)  -> ORANGE  RGB(1.0, 0.4, 0.0)
+          South wall (y = 0.0)  -> PURPLE  RGB(0.5, 0.0, 0.8)
+          West  wall (x = 0.0)  -> GREEN   RGB(0.1, 0.8, 0.1)
+
+  GAME OBJECTS:
+    - 16 orange ping-pong balls (model://ping_pong_ball).
+    - 24 grey steel bearings   (model://steel_bearing).
+
+  ROBOT:
+    - The robot is NOT embedded in this world. It is spawned at RUNTIME by
+      launch/sim.launch.py (ros_gz_sim 'create') from /robot_description at
+      start pose (x=0.1, y=0.1, z=0.0) with zero orientation, near the SW
+      corner of the arena.
+
+  RESOURCE PATHS:
+    - model:// includes (ping_pong_ball, steel_bearing) resolve through
+      GZ_SIM_RESOURCE_PATH, which the launch file points at this package's
+      'models' directory (and the unibots_description share).
+  =======================================================================
+-->
+<sdf version="1.10">
+  <world name="unibots_arena">
+
+    <!-- =================================================================== -->
+    <!-- GUI: start the camera zoomed onto the 2x2 m arena.                  -->
+    <!-- The floor IS only 2x2 m; Gazebo's default infinite background grid  -->
+    <!-- just makes it look small. Framing the camera on the arena centre    -->
+    <!-- (1,1) fixes the apparent scale. (Providing <gui> replaces the       -->
+    <!-- default config, so the standard view/control plugins are listed.)   -->
+    <!-- =================================================================== -->
+    <gui fullscreen="0">
+      <plugin filename="MinimalScene" name="3D View">
+        <gz-gui>
+          <title>3D View</title>
+          <property type="bool" key="showTitleBar">false</property>
+          <property type="string" key="state">docked</property>
+        </gz-gui>
+        <engine>ogre2</engine>
+        <scene>scene</scene>
+        <ambient_light>0.6 0.6 0.6</ambient_light>
+        <background_color>0.8 0.85 0.9</background_color>
+        <!-- x y z roll pitch yaw: south of the arena, raised, looking N+down. -->
+        <camera_pose>1.0 -1.6 1.7 0 0.62 1.5708</camera_pose>
+      </plugin>
+      <plugin filename="GzSceneManager" name="Scene Manager"/>
+      <plugin filename="InteractiveViewControl" name="Interactive view control"/>
+      <plugin filename="CameraTracking" name="Camera Tracking"/>
+      <plugin filename="WorldControl" name="World control">
+        <play_pause>true</play_pause>
+        <step>true</step>
+        <start_paused>false</start_paused>
+        <use_event>true</use_event>
+      </plugin>
+    </gui>
+
+   <!-- =================================================================== -->
+    <!-- Core Gazebo systems (must be present for physics / sensors / GUI).  -->
+    <!-- =================================================================== -->
+
+    <!-- Rigid-body dynamics integrator. -->
+    <plugin
+      filename="gz-sim-physics-system"
+      name="gz::sim::systems::Physics">
+    </plugin>
+
+    <!-- Handles user/service requests (spawn, remove, pose set, etc.).
+         Required so the launch-time 'create' spawn request is serviced. -->
+    <plugin
+      filename="gz-sim-user-commands-system"
+      name="gz::sim::systems::UserCommands">
+    </plugin>
+
+    <!-- Broadcasts world/scene state to the GUI and to ros_gz clients. -->
+    <plugin
+      filename="gz-sim-scene-broadcaster-system"
+      name="gz::sim::systems::SceneBroadcaster">
+    </plugin>
+
+    <!-- Renders camera/depth/lidar sensors. ogre2 is the default high-quality
+         render engine on Gazebo Harmonic. -->
+    <plugin
+      filename="gz-sim-sensors-system"
+      name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+
+    <!-- =================================================================== -->
+    <!-- Physics settings.                                                   -->
+    <!-- =================================================================== -->
+    <!-- 1 ms step for stable small-object (ball/bearing) contacts. -->
+    <physics name="ode_physics" type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+    </physics>
+
+    <!-- Standard Earth gravity (REP-103: z up). -->
+    <gravity>0 0 -9.81</gravity>
+
+    <!-- =================================================================== -->
+    <!-- Scene / ambient lighting (indoor competition hall feel).            -->
+    <!-- =================================================================== -->
+    <scene>
+      <ambient>0.6 0.6 0.6 1.0</ambient>
+      <background>0.8 0.85 0.9 1.0</background>
+      <shadows>true</shadows>
+    </scene>
+
+    <!-- Overhead sun-like directional light pointing straight down-ish. -->
+    <light name="overhead_sun" type="directional">
+      <cast_shadows>true</cast_shadows>
+      <pose>1.0 1.0 5.0 0 0 0</pose>
+      <diffuse>0.9 0.9 0.9 1.0</diffuse>
+      <specular>0.3 0.3 0.3 1.0</specular>
+      <attenuation>
+        <range>50</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <!-- Slightly angled so walls cast soft shadows for visual depth. -->
+      <direction>-0.2 -0.2 -1.0</direction>
+    </light>
+
+    <!-- =================================================================== -->
+    <!-- Floor: white 2.0 x 2.0 m foam-tile plate.                           -->
+    <!-- =================================================================== -->
+    <!-- The floor box geometry is 2.0 x 2.0 m. The MODEL is placed at
+         (1.0, 1.0, 0) so the floor surface spans x in [0,2], y in [0,2],
+         matching the arena coordinate convention (SW corner at origin). -->
+    <model name="arena_floor">
+      <static>true</static>
+      <pose>1.0 1.0 0 0 0 0</pose>
+      <link name="floor_link">
+        <collision name="floor_collision">
+          <geometry>
+            <box>
+              <!-- 2 m x 2 m floor, 0.02 m thick (top surface at z=0). -->
+              <size>2.0 2.0 0.02</size>
+            </box>
+          </geometry>
+          <pose>0 0 -0.01 0 0 0</pose>
+          <surface>
+            <friction>
+              <ode>
+                <!-- Foam tile is slippery: mu = mu2 = 0.5. -->
+                <mu>0.5</mu>
+                <mu2>0.5</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="floor_visual">
+          <geometry>
+            <box>
+              <size>2.0 2.0 0.02</size>
+            </box>
+          </geometry>
+          <pose>0 0 -0.01 0 0 0</pose>
+          <material>
+            <!-- White floor. -->
+            <ambient>0.9 0.9 0.9 1.0</ambient>
+            <diffuse>1.0 1.0 1.0 1.0</diffuse>
+            <specular>0.1 0.1 0.1 1.0</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- =================================================================== -->
+    <!-- Perimeter walls (2.0 L x 0.15 H x 0.02 T).                          -->
+    <!-- Wall centre z = 0.075 (half of 0.15 tall). Walls running along the  -->
+    <!-- x axis (N/S) keep default orientation; walls running along the y    -->
+    <!-- axis (E/W) are rotated 90 deg about z so their 2.0 m length is on y.-->
+    <!-- =================================================================== -->
+
+    <model name="perimeter_walls">
+      <static>true</static>
+
+      <link name="wall_north">
+        <pose>1.0 2.0 0.075 0 0 0</pose>
+        <collision name="col"><geometry><box><size>2.0 0.02 0.15</size></box></geometry></collision>
+        
+        <visual name="vis_left"><pose>-0.7 0 0 0 0 0</pose>
+          <geometry><box><size>0.6 0.02 0.15</size></box></geometry>
+          <material><ambient>0.1 0.1 0.1 1.0</ambient><diffuse>0.1 0.1 0.1 1.0</diffuse></material>
+        </visual>
+        
+        <visual name="vis_center"><pose>0 0 0 0 0 0</pose>
+          <geometry><box><size>0.8 0.02 0.15</size></box></geometry>
+          <material><ambient>1.0 0.9 0.0 1.0</ambient><diffuse>1.0 0.9 0.0 1.0</diffuse></material>
+        </visual>
+        
+        <visual name="vis_right"><pose>0.7 0 0 0 0 0</pose>
+          <geometry><box><size>0.6 0.02 0.15</size></box></geometry>
+          <material><ambient>0.1 0.1 0.1 1.0</ambient><diffuse>0.1 0.1 0.1 1.0</diffuse></material>
+        </visual>
+
+        <visual name="tag_0"><pose>-0.85 -0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="tag_1"><pose>-0.55 -0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="tag_2"><pose>-0.25 -0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="tag_3"><pose>0.25 -0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="tag_4"><pose>0.55 -0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="tag_5"><pose>0.85 -0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      </link>
+
+      <link name="wall_south">
+        <pose>1.0 0.0 0.075 0 0 0</pose>
+        <collision name="col"><geometry><box><size>2.0 0.02 0.15</size></box></geometry></collision>
+        
+        <visual name="vis_left"><pose>-0.7 0 0 0 0 0</pose>
+          <geometry><box><size>0.6 0.02 0.15</size></box></geometry>
+          <material><ambient>0.1 0.1 0.1 1.0</ambient><diffuse>0.1 0.1 0.1 1.0</diffuse></material>
+        </visual>
+        <visual name="vis_center"><pose>0 0 0 0 0 0</pose>
+          <geometry><box><size>0.8 0.02 0.15</size></box></geometry>
+          <material><ambient>0.5 0.0 0.8 1.0</ambient><diffuse>0.5 0.0 0.8 1.0</diffuse></material>
+        </visual>
+        <visual name="vis_right"><pose>0.7 0 0 0 0 0</pose>
+          <geometry><box><size>0.6 0.02 0.15</size></box></geometry>
+          <material><ambient>0.1 0.1 0.1 1.0</ambient><diffuse>0.1 0.1 0.1 1.0</diffuse></material>
+        </visual>
+
+        <visual name="tag_12"><pose>0.85 0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="tag_13"><pose>0.55 0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="tag_14"><pose>0.25 0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="tag_15"><pose>-0.25 0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="tag_16"><pose>-0.55 0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="tag_17"><pose>-0.85 0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      </link>
+
+      <link name="wall_east">
+        <pose>2.0 1.0 0.075 0 0 1.57079632679</pose>
+        <collision name="col"><geometry><box><size>2.0 0.02 0.15</size></box></geometry></collision>
+        
+        <visual name="vis_left"><pose>-0.7 0 0 0 0 0</pose>
+          <geometry><box><size>0.6 0.02 0.15</size></box></geometry>
+          <material><ambient>0.1 0.1 0.1 1.0</ambient><diffuse>0.1 0.1 0.1 1.0</diffuse></material>
+        </visual>
+        <visual name="vis_center"><pose>0 0 0 0 0 0</pose>
+          <geometry><box><size>0.8 0.02 0.15</size></box></geometry>
+          <material><ambient>1.0 0.4 0.0 1.0</ambient><diffuse>1.0 0.4 0.0 1.0</diffuse></material>
+        </visual>
+        <visual name="vis_right"><pose>0.7 0 0 0 0 0</pose>
+          <geometry><box><size>0.6 0.02 0.15</size></box></geometry>
+          <material><ambient>0.1 0.1 0.1 1.0</ambient><diffuse>0.1 0.1 0.1 1.0</diffuse></material>
+        </visual>
+
+        <visual name="tag_6"><pose>0.85 0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="tag_7"><pose>0.55 0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="tag_8"><pose>0.25 0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="tag_9"><pose>-0.25 0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="tag_10"><pose>-0.55 0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="tag_11"><pose>-0.85 0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      </link>
+
+      <link name="wall_west">
+        <pose>0.0 1.0 0.075 0 0 1.57079632679</pose>
+        <collision name="col"><geometry><box><size>2.0 0.02 0.15</size></box></geometry></collision>
+        
+        <visual name="vis_left"><pose>-0.7 0 0 0 0 0</pose>
+          <geometry><box><size>0.6 0.02 0.15</size></box></geometry>
+          <material><ambient>0.1 0.1 0.1 1.0</ambient><diffuse>0.1 0.1 0.1 1.0</diffuse></material>
+        </visual>
+        <visual name="vis_center"><pose>0 0 0 0 0 0</pose>
+          <geometry><box><size>0.8 0.02 0.15</size></box></geometry>
+          <material><ambient>0.1 0.8 0.1 1.0</ambient><diffuse>0.1 0.8 0.1 1.0</diffuse></material>
+        </visual>
+        <visual name="vis_right"><pose>0.7 0 0 0 0 0</pose>
+          <geometry><box><size>0.6 0.02 0.15</size></box></geometry>
+          <material><ambient>0.1 0.1 0.1 1.0</ambient><diffuse>0.1 0.1 0.1 1.0</diffuse></material>
+        </visual>
+
+        <visual name="tag_18"><pose>-0.85 -0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="tag_19"><pose>-0.55 -0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="tag_20"><pose>-0.25 -0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="tag_21"><pose>0.25 -0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="tag_22"><pose>0.55 -0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+        <visual name="tag_23"><pose>0.85 -0.011 0 0 0 0</pose><geometry><box><size>0.1 0.001 0.1</size></box></geometry><material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <model name="net_north_yellow">
+      <static>true</static>
+      <pose>1.0 2.11 0 0 0 0</pose>
+      <link name="base"><pose>0 0 0.01 0 0 0</pose><collision name="c"><geometry><box><size>0.8 0.2 0.02</size></box></geometry></collision><visual name="v"><geometry><box><size>0.8 0.2 0.02</size></box></geometry><material><ambient>1.0 0.9 0.0 1.0</ambient><diffuse>1.0 0.9 0.0 1.0</diffuse></material></visual></link>
+      <link name="back"><pose>0 0.09 0.075 0 0 0</pose><collision name="c"><geometry><box><size>0.8 0.02 0.15</size></box></geometry></collision><visual name="v"><geometry><box><size>0.8 0.02 0.15</size></box></geometry><material><ambient>1.0 0.9 0.0 1.0</ambient><diffuse>1.0 0.9 0.0 1.0</diffuse></material></visual></link>
+      <link name="left"><pose>-0.39 0 0.075 0 0 0</pose><collision name="c"><geometry><box><size>0.02 0.2 0.15</size></box></geometry></collision><visual name="v"><geometry><box><size>0.02 0.2 0.15</size></box></geometry><material><ambient>1.0 0.9 0.0 1.0</ambient><diffuse>1.0 0.9 0.0 1.0</diffuse></material></visual></link>
+      <link name="right"><pose>0.39 0 0.075 0 0 0</pose><collision name="c"><geometry><box><size>0.02 0.2 0.15</size></box></geometry></collision><visual name="v"><geometry><box><size>0.02 0.2 0.15</size></box></geometry><material><ambient>1.0 0.9 0.0 1.0</ambient><diffuse>1.0 0.9 0.0 1.0</diffuse></material></visual></link>
+    </model>
+
+    <model name="net_south_purple">
+      <static>true</static>
+      <pose>1.0 -0.11 0 0 0 0</pose>
+      <link name="base"><pose>0 0 0.01 0 0 0</pose><collision name="c"><geometry><box><size>0.8 0.2 0.02</size></box></geometry></collision><visual name="v"><geometry><box><size>0.8 0.2 0.02</size></box></geometry><material><ambient>0.5 0.0 0.8 1.0</ambient><diffuse>0.5 0.0 0.8 1.0</diffuse></material></visual></link>
+      <link name="back"><pose>0 -0.09 0.075 0 0 0</pose><collision name="c"><geometry><box><size>0.8 0.02 0.15</size></box></geometry></collision><visual name="v"><geometry><box><size>0.8 0.02 0.15</size></box></geometry><material><ambient>0.5 0.0 0.8 1.0</ambient><diffuse>0.5 0.0 0.8 1.0</diffuse></material></visual></link>
+      <link name="left"><pose>-0.39 0 0.075 0 0 0</pose><collision name="c"><geometry><box><size>0.02 0.2 0.15</size></box></geometry></collision><visual name="v"><geometry><box><size>0.02 0.2 0.15</size></box></geometry><material><ambient>0.5 0.0 0.8 1.0</ambient><diffuse>0.5 0.0 0.8 1.0</diffuse></material></visual></link>
+      <link name="right"><pose>0.39 0 0.075 0 0 0</pose><collision name="c"><geometry><box><size>0.02 0.2 0.15</size></box></geometry></collision><visual name="v"><geometry><box><size>0.02 0.2 0.15</size></box></geometry><material><ambient>0.5 0.0 0.8 1.0</ambient><diffuse>0.5 0.0 0.8 1.0</diffuse></material></visual></link>
+    </model>
+
+    <model name="net_east_orange">
+      <static>true</static>
+      <pose>2.11 1.0 0 0 0 1.57079632679</pose>
+      <link name="base"><pose>0 0 0.01 0 0 0</pose><collision name="c"><geometry><box><size>0.8 0.2 0.02</size></box></geometry></collision><visual name="v"><geometry><box><size>0.8 0.2 0.02</size></box></geometry><material><ambient>1.0 0.4 0.0 1.0</ambient><diffuse>1.0 0.4 0.0 1.0</diffuse></material></visual></link>
+      <link name="back"><pose>0 -0.09 0.075 0 0 0</pose><collision name="c"><geometry><box><size>0.8 0.02 0.15</size></box></geometry></collision><visual name="v"><geometry><box><size>0.8 0.02 0.15</size></box></geometry><material><ambient>1.0 0.4 0.0 1.0</ambient><diffuse>1.0 0.4 0.0 1.0</diffuse></material></visual></link>
+      <link name="left"><pose>-0.39 0 0.075 0 0 0</pose><collision name="c"><geometry><box><size>0.02 0.2 0.15</size></box></geometry></collision><visual name="v"><geometry><box><size>0.02 0.2 0.15</size></box></geometry><material><ambient>1.0 0.4 0.0 1.0</ambient><diffuse>1.0 0.4 0.0 1.0</diffuse></material></visual></link>
+      <link name="right"><pose>0.39 0 0.075 0 0 0</pose><collision name="c"><geometry><box><size>0.02 0.2 0.15</size></box></geometry></collision><visual name="v"><geometry><box><size>0.02 0.2 0.15</size></box></geometry><material><ambient>1.0 0.4 0.0 1.0</ambient><diffuse>1.0 0.4 0.0 1.0</diffuse></material></visual></link>
+    </model>
+
+    <model name="net_west_green">
+      <static>true</static>
+      <pose>-0.11 1.0 0 0 0 1.57079632679</pose>
+      <link name="base"><pose>0 0 0.01 0 0 0</pose><collision name="c"><geometry><box><size>0.8 0.2 0.02</size></box></geometry></collision><visual name="v"><geometry><box><size>0.8 0.2 0.02</size></box></geometry><material><ambient>0.1 0.8 0.1 1.0</ambient><diffuse>0.1 0.8 0.1 1.0</diffuse></material></visual></link>
+      <link name="back"><pose>0 0.09 0.075 0 0 0</pose><collision name="c"><geometry><box><size>0.8 0.02 0.15</size></box></geometry></collision><visual name="v"><geometry><box><size>0.8 0.02 0.15</size></box></geometry><material><ambient>0.1 0.8 0.1 1.0</ambient><diffuse>0.1 0.8 0.1 1.0</diffuse></material></visual></link>
+      <link name="left"><pose>-0.39 0 0.075 0 0 0</pose><collision name="c"><geometry><box><size>0.02 0.2 0.15</size></box></geometry></collision><visual name="v"><geometry><box><size>0.02 0.2 0.15</size></box></geometry><material><ambient>0.1 0.8 0.1 1.0</ambient><diffuse>0.1 0.8 0.1 1.0</diffuse></material></visual></link>
+      <link name="right"><pose>0.39 0 0.075 0 0 0</pose><collision name="c"><geometry><box><size>0.02 0.2 0.15</size></box></geometry></collision><visual name="v"><geometry><box><size>0.02 0.2 0.15</size></box></geometry><material><ambient>0.1 0.8 0.1 1.0</ambient><diffuse>0.1 0.8 0.1 1.0</diffuse></material></visual></link>
+    </model>
+
+    <!-- =================================================================== -->
+    <!-- Game objects: 16 orange ping-pong balls (r=0.02). z = 0.02 (resting  -->
+    <!-- on floor surface at radius height).                                 -->
+    <!-- =================================================================== -->
+    <include><name>pp_1</name><uri>model://ping_pong_ball</uri><pose>0.8 0.8 0.02 0 0 0</pose></include>
+    <include><name>pp_2</name><uri>model://ping_pong_ball</uri><pose>0.8 1.2 0.02 0 0 0</pose></include>
+    <include><name>pp_3</name><uri>model://ping_pong_ball</uri><pose>1.2 0.8 0.02 0 0 0</pose></include>
+    <include><name>pp_4</name><uri>model://ping_pong_ball</uri><pose>1.2 1.2 0.02 0 0 0</pose></include>
+    <!--<include><name>pp_5</name><uri>model://ping_pong_ball</uri><pose>0.6 1.0 0.02 0 0 0</pose></include>
+    <include><name>pp_6</name><uri>model://ping_pong_ball</uri><pose>1.4 1.0 0.02 0 0 0</pose></include>
+    <include><name>pp_7</name><uri>model://ping_pong_ball</uri><pose>1.0 0.6 0.02 0 0 0</pose></include>
+    <include><name>pp_8</name><uri>model://ping_pong_ball</uri><pose>1.0 1.4 0.02 0 0 0</pose></include>
+    <include><name>pp_9</name><uri>model://ping_pong_ball</uri><pose>0.5 0.5 0.02 0 0 0</pose></include>
+    <include><name>pp_10</name><uri>model://ping_pong_ball</uri><pose>0.5 1.5 0.02 0 0 0</pose></include>
+    <include><name>pp_11</name><uri>model://ping_pong_ball</uri><pose>1.5 0.5 0.02 0 0 0</pose></include>
+    <include><name>pp_12</name><uri>model://ping_pong_ball</uri><pose>1.5 1.5 0.02 0 0 0</pose></include>
+    <include><name>pp_13</name><uri>model://ping_pong_ball</uri><pose>0.9 0.9 0.02 0 0 0</pose></include>
+    <include><name>pp_14</name><uri>model://ping_pong_ball</uri><pose>0.9 1.1 0.02 0 0 0</pose></include>
+    <include><name>pp_15</name><uri>model://ping_pong_ball</uri><pose>1.1 0.9 0.02 0 0 0</pose></include>
+    <include><name>pp_16</name><uri>model://ping_pong_ball</uri><pose>1.1 1.1 0.02 0 0 0</pose></include> -->
+
+    <!-- =================================================================== -->
+    <!-- Game objects: 24 grey steel bearings (r=0.01). z = 0.01 (resting on  -->
+    <!-- floor surface at radius height).                                    -->
+    <!-- =================================================================== -->
+    <include><name>sb_1</name><uri>model://steel_bearing</uri><pose>0.7 0.7 0.01 0 0 0</pose></include>
+    <include><name>sb_2</name><uri>model://steel_bearing</uri><pose>0.7 1.3 0.01 0 0 0</pose></include>
+    <include><name>sb_3</name><uri>model://steel_bearing</uri><pose>1.3 0.7 0.01 0 0 0</pose></include>
+    <include><name>sb_4</name><uri>model://steel_bearing</uri><pose>1.3 1.3 0.01 0 0 0</pose></include>
+    <include><name>sb_5</name><uri>model://steel_bearing</uri><pose>0.4 1.0 0.01 0 0 0</pose></include>
+    <include><name>sb_6</name><uri>model://steel_bearing</uri><pose>1.6 1.0 0.01 0 0 0</pose></include>
+    <include><name>sb_7</name><uri>model://steel_bearing</uri><pose>1.0 0.4 0.01 0 0 0</pose></include>
+    <include><name>sb_8</name><uri>model://steel_bearing</uri><pose>1.0 1.6 0.01 0 0 0</pose></include>
+    <include><name>sb_9</name><uri>model://steel_bearing</uri><pose>0.6 0.8 0.01 0 0 0</pose></include>
+    <include><name>sb_10</name><uri>model://steel_bearing</uri><pose>0.6 1.2 0.01 0 0 0</pose></include>
+    <!-- <include><name>sb_11</name><uri>model://steel_bearing</uri><pose>1.4 0.8 0.01 0 0 0</pose></include>
+    <include><name>sb_12</name><uri>model://steel_bearing</uri><pose>1.4 1.2 0.01 0 0 0</pose></include>
+    <include><name>sb_13</name><uri>model://steel_bearing</uri><pose>0.8 0.6 0.01 0 0 0</pose></include>
+    <include><name>sb_14</name><uri>model://steel_bearing</uri><pose>1.2 0.6 0.01 0 0 0</pose></include>
+    <include><name>sb_15</name><uri>model://steel_bearing</uri><pose>0.8 1.4 0.01 0 0 0</pose></include>
+    <include><name>sb_16</name><uri>model://steel_bearing</uri><pose>1.2 1.4 0.01 0 0 0</pose></include>
+    <include><name>sb_17</name><uri>model://steel_bearing</uri><pose>0.3 0.3 0.01 0 0 0</pose></include>
+    <include><name>sb_18</name><uri>model://steel_bearing</uri><pose>0.3 1.7 0.01 0 0 0</pose></include>
+    <include><name>sb_19</name><uri>model://steel_bearing</uri><pose>1.7 0.3 0.01 0 0 0</pose></include>
+    <include><name>sb_20</name><uri>model://steel_bearing</uri><pose>1.7 1.7 0.01 0 0 0</pose></include>
+    <include><name>sb_21</name><uri>model://steel_bearing</uri><pose>0.9 0.4 0.01 0 0 0</pose></include>
+    <include><name>sb_22</name><uri>model://steel_bearing</uri><pose>1.1 0.4 0.01 0 0 0</pose></include>
+    <include><name>sb_23</name><uri>model://steel_bearing</uri><pose>0.9 1.6 0.01 0 0 0</pose></include>
+    <include><name>sb_24</name><uri>model://steel_bearing</uri><pose>1.1 1.6 0.01 0 0 0</pose></include> -->
+
+  </world>
+</sdf>

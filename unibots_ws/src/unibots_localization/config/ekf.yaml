@@ -1,0 +1,167 @@
+# =============================================================================
+# robot_localization EKF configuration -- Unibots UK 2026 mecanum robot
+# =============================================================================
+# This EKF fuses three sources into a single smooth state estimate:
+#
+#   1. /odom               -- wheel-encoder odometry (mecanum forward kinematics)
+#   2. /imu/data           -- BNO055 IMU (orientation + angular velocity)
+#   3. /localization/robot_pose -- absolute AprilTag pose (from ekf_bridge_node)
+#
+# Sensor-fusion philosophy for THIS robot:
+#   * Wheels SLIP on the foam-tile arena -> integrated wheel POSITION drifts
+#     quickly and is untrustworthy. But wheel VELOCITIES are still informative.
+#   * The gyroscope is immune to wheel slip and is by far the most reliable
+#     rotation sensor -> trust IMU yaw / yaw-rate heavily.
+#   * AprilTags give a true ABSOLUTE position fix but only intermittently (a tag
+#     must be in view, and may be occluded by an opponent) -> trust them when
+#     present, with a rejection gate against bad steep-angle detections.
+# =============================================================================
+
+ekf_filter_node:
+  ros__parameters:
+
+    # ---- Core timing / frames ----------------------------------------------
+    frequency: 20.0            # Hz; plenty for a slow indoor robot. (Kept at 20
+                               # rather than 30 so the filter comfortably meets
+                               # its update deadline on a Pi 5 / WSL2 host -- at
+                               # 30 Hz it occasionally logs "Failed to meet update
+                               # rate" when the host is loaded.)
+    sensor_timeout: 0.2        # s; if a source stalls, keep predicting.
+    two_d_mode: true           # Flat arena: z, roll, pitch, and their rates are
+                               # forced to zero. Hugely stabilises the filter.
+
+    # use_sim_time is overridden by the launch file (true in Gazebo, false on
+    # the real robot). Declared here so the param exists.
+    use_sim_time: true
+
+    # Frame convention (REP-105):
+    #   map  -> odom -> base_link
+    # world_frame = map: this filter produces the *global* map->base estimate
+    # because we fuse an absolute (AprilTag) reference. The map->odom correction
+    # absorbs the accumulated odom drift. (If you wanted purely local, drift-free
+    # smoothing you would set world_frame = odom and NOT fuse the tag pose here.)
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: map
+
+    publish_tf: true           # broadcast map->odom transform.
+    publish_acceleration: false
+
+    # =========================================================================
+    # SOURCE 0: wheel odometry  (/odom, nav_msgs/Odometry)
+    # -------------------------------------------------------------------------
+    # Config matrix order:
+    #   [ x,     y,     z,
+    #     roll,  pitch, yaw,
+    #     vx,    vy,    vz,
+    #     vroll, vpitch,vyaw,
+    #     ax,    ay,    az ]
+    #
+    # We fuse the body-frame VELOCITIES vx, vy (mecanum can strafe) and yaw-rate
+    # vyaw, but DELIBERATELY NOT the absolute x, y pose:
+    #   foam-tile slip makes integrated wheel position drift fast, so feeding
+    #   wheel x,y would poison the global estimate. Velocities degrade more
+    #   gracefully and complement the absolute AprilTag fixes.
+    # =========================================================================
+    odom0: /odom
+    odom0_config: [false, false, false,
+                   false, false, false,
+                   true,  true,  false,
+                   false, false, true,
+                   false, false, false]
+    odom0_queue_size: 10
+    odom0_differential: false
+    odom0_relative: false
+    # High covariance is also set on the publisher side; we simply do not ingest
+    # pose here, which is the strongest possible "distrust position" statement.
+    odom0_nodelay: true
+
+    # =========================================================================
+    # SOURCE 1: IMU  (/imu/data, sensor_msgs/Imu -- BNO055)
+    # -------------------------------------------------------------------------
+    # Trust ABSOLUTE YAW and YAW-RATE heavily. A gyroscope/AHRS does not care
+    # about wheel slip, making it the single most reliable rotation sensor on
+    # the robot. We do NOT fuse linear acceleration (BNO055 accel is noisy and
+    # two_d_mode handles z anyway) and we ignore roll/pitch (flat arena).
+    # =========================================================================
+    imu0: /imu/data
+    imu0_config: [false, false, false,
+                  false, false, true,    # yaw (absolute orientation)
+                  false, false, false,
+                  false, false, true,    # yaw rate (gyro)
+                  false, false, false]   # no linear accel
+    imu0_differential: false
+    imu0_relative: false
+    imu0_queue_size: 10
+    imu0_remove_gravitational_acceleration: true  # harmless; accel not fused.
+    imu0_nodelay: true
+
+    # =========================================================================
+    # SOURCE 2: AprilTag absolute pose
+    #           (/localization/robot_pose, PoseWithCovarianceStamped)
+    # -------------------------------------------------------------------------
+    # The ONLY absolute global reference. Fuse x, y and yaw. The per-message
+    # covariance from ekf_bridge_node already scales with detection distance, so
+    # the EKF auto-weights close vs far tags. LOW covariance (relative to wheel
+    # odom) means the filter snaps the global estimate onto tag fixes when they
+    # arrive, correcting accumulated drift.
+    #
+    # Rejection gate: steep-viewing-angle tags suffer pose ambiguity (the classic
+    # AprilTag "flip"), producing occasional large jumps. The Mahalanobis
+    # rejection threshold drops any measurement that disagrees with the current
+    # estimate by more than 3 sigma, protecting us from those flips.
+    # =========================================================================
+    pose0: /localization/robot_pose
+    pose0_config: [true,  true,  false,
+                   false, false, true,
+                   false, false, false,
+                   false, false, false,
+                   false, false, false]
+    pose0_differential: false
+    pose0_relative: false
+    pose0_queue_size: 10
+    pose0_rejection_threshold: 3.0      # Mahalanobis gate on pose (reject flips)
+    pose0_nodelay: true
+
+    # =========================================================================
+    # Process noise covariance (Q): how fast the filter "forgets" / how much it
+    # trusts its own motion model between measurements. Defaults tuned slightly
+    # higher on x, y, yaw so absolute tag fixes can pull the estimate promptly.
+    # Order: x y z roll pitch yaw vx vy vz vroll vpitch vyaw ax ay az
+    # =========================================================================
+    process_noise_covariance: [0.05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.06, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.03, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.03, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.06, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.025, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.025, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.04, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.02, 0.0, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.01, 0.0,
+                               0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.015]
+
+    # =========================================================================
+    # Initial estimate covariance (P0): start fairly uncertain so the first few
+    # measurements dominate.
+    # =========================================================================
+    initial_estimate_covariance: [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 1e-09, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 1e-09, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 1e-09, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1e-09, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1e-09, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1e-09, 0.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0,
+                                  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]

@@ -1,0 +1,77 @@
+# =============================================================================
+# Arena AprilTag world map -- Unibots UK 2026
+# =============================================================================
+# 24 AprilTags (family 36h11, 100 x 100 mm) surveyed onto a 2.0 x 2.0 m arena.
+# The SW corner is the origin (0, 0); +x runs EAST, +y runs NORTH, +z is up.
+# Tag centres sit ~0.075 m above the floor. Within a wall, tag i is at offset
+# 0.15 + 0.30*i (i = 0..5), i.e. 150 mm in from the corner, 300 mm apart.
+#
+# WHY SIX TAGS PER WALL (and 24 total) MATTERS
+# ---------------------------------------------------------------------------
+#   * REDUNDANCY / OCCLUSION: in a match an opponent robot will frequently block
+#     the camera's line of sight to a tag. With six tags per wall the robot can
+#     almost always still see *another* tag, so localization never goes blind.
+#   * AVERAGING: when several tags are visible at once, ekf_bridge_node fuses
+#     them with inverse-variance weighting. Independent measurements average down
+#     the noise and reject a single bad detection.
+#   * DISAMBIGUATION: a lone tag viewed at a steep angle is prone to the
+#     AprilTag pose "flip" ambiguity. A second visible tag breaks the tie and
+#     lets the EKF's rejection gate throw out the wrong solution.
+#
+# These values are ALSO hardcoded in ekf_bridge_node.py (TAG_WORLD_POSITIONS) so
+# the node runs even without this file. This YAML lets you re-survey / tweak the
+# map without touching code, and documents the layout for the whole team.
+#
+# `yaw_normal` is the world-frame heading (rad) of each tag's OUTWARD face
+# normal -- the direction it faces toward the arena centre. The robot's camera
+# must be roughly opposite this to read the tag.
+# =============================================================================
+
+arena:
+  size_m: 2.0
+  origin: SW          # corner (0, 0)
+  tag_family: 36h11
+  tag_size_m: 0.100
+  tag_height_m: 0.075
+  # Global fallback tolerance (m) for matching a detection to a surveyed tag,
+  # used if a per-tag `tolerance` is not given.
+  tolerance_m: 0.05
+
+# Per-wall geometry reference (informational):
+#   north: y = 2.0, normal faces south (-pi/2)
+#   east : x = 2.0, normal faces west  (+pi)
+#   south: y = 0.0, normal faces north (+pi/2)
+#   west : x = 0.0, normal faces east  ( 0.0)
+
+tags:
+  # ---- NORTH wall (y = 2.0), normal faces SOUTH ----------------------------
+  0:  {x: 0.15, y: 2.00, wall: north, height: 0.075, yaw_normal: -1.5707963, tolerance: 0.05}
+  1:  {x: 0.45, y: 2.00, wall: north, height: 0.075, yaw_normal: -1.5707963, tolerance: 0.05}
+  2:  {x: 0.75, y: 2.00, wall: north, height: 0.075, yaw_normal: -1.5707963, tolerance: 0.05}
+  3:  {x: 1.05, y: 2.00, wall: north, height: 0.075, yaw_normal: -1.5707963, tolerance: 0.05}
+  4:  {x: 1.35, y: 2.00, wall: north, height: 0.075, yaw_normal: -1.5707963, tolerance: 0.05}
+  5:  {x: 1.65, y: 2.00, wall: north, height: 0.075, yaw_normal: -1.5707963, tolerance: 0.05}
+
+  # ---- EAST wall (x = 2.0), normal faces WEST ------------------------------
+  6:  {x: 2.00, y: 0.15, wall: east,  height: 0.075, yaw_normal: 3.1415927, tolerance: 0.05}
+  7:  {x: 2.00, y: 0.45, wall: east,  height: 0.075, yaw_normal: 3.1415927, tolerance: 0.05}
+  8:  {x: 2.00, y: 0.75, wall: east,  height: 0.075, yaw_normal: 3.1415927, tolerance: 0.05}
+  9:  {x: 2.00, y: 1.05, wall: east,  height: 0.075, yaw_normal: 3.1415927, tolerance: 0.05}
+  10: {x: 2.00, y: 1.35, wall: east,  height: 0.075, yaw_normal: 3.1415927, tolerance: 0.05}
+  11: {x: 2.00, y: 1.65, wall: east,  height: 0.075, yaw_normal: 3.1415927, tolerance: 0.05}
+
+  # ---- SOUTH wall (y = 0.0), normal faces NORTH ----------------------------
+  12: {x: 0.15, y: 0.00, wall: south, height: 0.075, yaw_normal: 1.5707963, tolerance: 0.05}
+  13: {x: 0.45, y: 0.00, wall: south, height: 0.075, yaw_normal: 1.5707963, tolerance: 0.05}
+  14: {x: 0.75, y: 0.00, wall: south, height: 0.075, yaw_normal: 1.5707963, tolerance: 0.05}
+  15: {x: 1.05, y: 0.00, wall: south, height: 0.075, yaw_normal: 1.5707963, tolerance: 0.05}
+  16: {x: 1.35, y: 0.00, wall: south, height: 0.075, yaw_normal: 1.5707963, tolerance: 0.05}
+  17: {x: 1.65, y: 0.00, wall: south, height: 0.075, yaw_normal: 1.5707963, tolerance: 0.05}
+
+  # ---- WEST wall (x = 0.0), normal faces EAST ------------------------------
+  18: {x: 0.00, y: 0.15, wall: west,  height: 0.075, yaw_normal: 0.0, tolerance: 0.05}
+  19: {x: 0.00, y: 0.45, wall: west,  height: 0.075, yaw_normal: 0.0, tolerance: 0.05}
+  20: {x: 0.00, y: 0.75, wall: west,  height: 0.075, yaw_normal: 0.0, tolerance: 0.05}
+  21: {x: 0.00, y: 1.05, wall: west,  height: 0.075, yaw_normal: 0.0, tolerance: 0.05}
+  22: {x: 0.00, y: 1.35, wall: west,  height: 0.075, yaw_normal: 0.0, tolerance: 0.05}
+  23: {x: 0.00, y: 1.65, wall: west,  height: 0.075, yaw_normal: 0.0, tolerance: 0.05}

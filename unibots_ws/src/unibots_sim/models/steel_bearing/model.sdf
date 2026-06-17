@@ -1,0 +1,75 @@
+<?xml version="1.0" ?>
+<!--
+  unibots_sim / models/steel_bearing/model.sdf
+  =======================================================================
+  Grey steel ball bearing (heavier game scoring object).
+
+  Physical properties:
+    radius  r = 0.01 m
+    mass    m = 0.034 kg
+    Solid-sphere inertia (uniform density approximation):
+        I = (2/5) * m * r^2
+          = (2/5) * 0.034 * 0.01^2
+          = 0.4 * 0.034 * 0.0001
+          = 1.36e-06 kg*m^2  (Ixx = Iyy = Izz)
+  =======================================================================
+-->
+<sdf version="1.10">
+  <model name="steel_bearing">
+    <link name="bearing_link">
+      <inertial>
+        <mass>0.034</mass>
+        <inertia>
+          <ixx>1.36e-06</ixx>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyy>1.36e-06</iyy>
+          <iyz>0.0</iyz>
+          <izz>1.36e-06</izz>
+        </inertia>
+      </inertial>
+
+      <collision name="collision">
+        <geometry>
+          <sphere>
+            <radius>0.01</radius>
+          </sphere>
+        </geometry>
+        <surface>
+          <friction>
+            <ode>
+              <!-- Steel-on-foam: high friction so it does not skate around. -->
+              <mu>1.0</mu>
+              <mu2>1.0</mu2>
+            </ode>
+          </friction>
+          <bounce>
+            <!-- Dense steel: low restitution. -->
+            <restitution_coefficient>0.2</restitution_coefficient>
+            <threshold>0.01</threshold>
+          </bounce>
+          <contact>
+            <ode>
+              <kp>1000000.0</kp>
+              <kd>10.0</kd>
+            </ode>
+          </contact>
+        </surface>
+      </collision>
+
+      <visual name="visual">
+        <geometry>
+          <sphere>
+            <radius>0.01</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <!-- Brushed-steel grey with a metallic specular highlight. -->
+          <ambient>0.4 0.4 0.42 1.0</ambient>
+          <diffuse>0.55 0.55 0.58 1.0</diffuse>
+          <specular>0.8 0.8 0.8 1.0</specular>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

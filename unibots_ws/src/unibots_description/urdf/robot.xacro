@@ -1,0 +1,524 @@
+<?xml version="1.0"?>
+<!--
+  unibots_description / robot.xacro
+  ==================================
+  Full URDF (in XACRO) for the Unibots UK 2026 mecanum competition robot.
+
+  Coordinate / frame conventions (REP-103, ROS standard):
+    - x : forward
+    - y : left
+    - z : up
+
+  Physical spec (from competition robot measurements):
+    - 4-wheel independent mecanum drive, no suspension.
+    - Wheel centre separation: 130 mm (L) x 140 mm (W).
+        => wheel x offset = +/- 0.04385 m
+        => wheel y offset = +/- 0.06625 m
+    - Wheel radius 30 mm (0.030 m), wheel width 25 mm (0.025 m).
+    - Chassis mass 0.8 kg, each wheel 0.1 kg.
+    - Camera ~250 mm above floor, forward, 15 deg downward tilt.
+    - Intake scooper at front gap.
+    - IMU (BNO055) at chassis centre.
+
+  base_link placement:
+    base_link is the geometric centre of the robot, RAISED to the wheel-axle
+    height (z = wheel radius = 0.030 m). This puts the wheel joint origins
+    (which sit at the axle height) at z = 0 relative to base_link, which keeps
+    the wheel-joint maths trivial and matches the mecanum_drive_controller
+    convention (wheel contact patches a distance = wheel_radius below the axle
+    plane). The chassis visual/collision boxes are offset upward from base_link
+    so the chassis body sits above the axles.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="unibots_robot">
+
+  <!-- ============================================================= -->
+  <!-- Global properties                                             -->
+  <!-- ============================================================= -->
+
+  <!-- Wheel geometry -->
+  <xacro:property name="wheel_radius" value="0.030"/>
+  <xacro:property name="wheel_width"  value="0.025"/>
+  <xacro:property name="wheel_mass"   value="0.1"/>
+
+  <!-- Wheel centre offsets from base_link -->
+  <xacro:property name="wheel_x_offset" value="0.04385"/>   <!-- 130 mm / 2 -->
+  <xacro:property name="wheel_y_offset" value="0.06625"/>   <!-- 140 mm / 2 -->
+
+  <!-- Mecanum roller geometry.
+       Each wheel is a hub ringed with NUM_ROLLERS passive rollers whose axes are
+       at 45 deg to the wheel spin axis. The rollers (not the hub) touch the
+       ground, so the wheel grips perpendicular to the roller axis and rolls
+       freely along it => true mecanum motion. The roller outer surface reaches
+       the full wheel_radius: roller_mount_radius + roller_radius == wheel_radius. -->
+  <xacro:property name="num_rollers"        value="8"/>
+  <xacro:property name="roller_radius"      value="0.008"/>
+  <xacro:property name="roller_length"      value="0.022"/>
+  <xacro:property name="roller_mass"        value="0.005"/>
+  <!-- Distance from the wheel axle to each roller's centre. -->
+  <xacro:property name="roller_mount_radius" value="${wheel_radius - roller_radius}"/>
+  <!-- Hub is purely structural/visual; its radius is just inside the rollers so
+       it never contacts the ground (no hub collision element at all). -->
+  <xacro:property name="hub_radius" value="${roller_mount_radius - 0.002}"/>
+  <xacro:property name="hub_mass"   value="${wheel_mass - num_rollers*roller_mass}"/>
+
+  <!-- Chassis box dimensions.
+       ASSUMPTION: exact chassis envelope not given; approximated as a
+       0.20 x 0.18 x 0.10 m box (L x W x H) for visual/collision/inertia. -->
+  <xacro:property name="chassis_length" value="0.20"/>
+  <xacro:property name="chassis_width"  value="0.18"/>
+  <xacro:property name="chassis_height" value="0.10"/>
+  <xacro:property name="chassis_mass"   value="0.8"/>
+
+  <!-- Vertical centre of the chassis box relative to base_link.
+       base_link is at axle height (0.030 m above floor). We raise the chassis
+       box so its bottom sits roughly at the axle plane and its body extends
+       upward. ASSUMPTION: chassis box centred half its height above base_link. -->
+  <xacro:property name="chassis_z" value="${chassis_height/2.0}"/>
+
+  <xacro:property name="PI" value="3.14159265358979"/>
+
+  <!-- ============================================================= -->
+  <!-- Inertia helper macros                                         -->
+  <!-- ============================================================= -->
+
+  <!-- Solid box inertia about its centre (axis-aligned):
+         Ixx = (1/12) m (y^2 + z^2)
+         Iyy = (1/12) m (x^2 + z^2)
+         Izz = (1/12) m (x^2 + y^2)                                   -->
+  <xacro:macro name="box_inertia" params="m x y z">
+    <inertia
+      ixx="${(1.0/12.0)*m*(y*y + z*z)}" ixy="0.0" ixz="0.0"
+      iyy="${(1.0/12.0)*m*(x*x + z*z)}" iyz="0.0"
+      izz="${(1.0/12.0)*m*(x*x + y*y)}"/>
+  </xacro:macro>
+
+  <!-- Solid cylinder inertia about its centre, cylinder axis along LOCAL z:
+         Ixx = Iyy = (1/12) m (3 r^2 + l^2)
+         Izz = (1/2) m r^2
+       NOTE: our wheels are rotated +90 deg about x so the cylinder axis aligns
+       with the robot's y axis. The inertia tensor is supplied in the wheel link
+       frame AFTER that rotation is applied via the <inertial> origin rpy, so we
+       provide the canonical (axis = local z) tensor and rotate the inertial
+       frame to match the visual/collision. -->
+  <xacro:macro name="cylinder_inertia" params="m r l">
+    <inertia
+      ixx="${(1.0/12.0)*m*(3.0*r*r + l*l)}" ixy="0.0" ixz="0.0"
+      iyy="${(1.0/12.0)*m*(3.0*r*r + l*l)}" iyz="0.0"
+      izz="${0.5*m*r*r}"/>
+  </xacro:macro>
+
+  <!--
+    Computed numeric values (for reference / sanity check):
+
+    Chassis box (m=0.8, x=0.20, y=0.18, z=0.10):
+      Ixx = (1/12)*0.8*(0.18^2 + 0.10^2) = (1/12)*0.8*(0.0324+0.01)
+          = (1/12)*0.8*0.0424 = 0.0028267 kg*m^2
+      Iyy = (1/12)*0.8*(0.20^2 + 0.10^2) = (1/12)*0.8*(0.04+0.01)
+          = (1/12)*0.8*0.05 = 0.0033333 kg*m^2
+      Izz = (1/12)*0.8*(0.20^2 + 0.18^2) = (1/12)*0.8*(0.04+0.0324)
+          = (1/12)*0.8*0.0724 = 0.0048267 kg*m^2
+
+    Wheel cylinder (m=0.1, r=0.030, l=0.025):
+      Ixx = Iyy = (1/12)*0.1*(3*0.030^2 + 0.025^2)
+                = (1/12)*0.1*(0.0027 + 0.000625)
+                = (1/12)*0.1*0.003325 = 2.7708e-5 kg*m^2
+      Izz = (1/2)*0.1*0.030^2 = (1/2)*0.1*0.0009 = 4.5e-5 kg*m^2
+  -->
+
+  <!-- ============================================================= -->
+  <!-- Materials                                                     -->
+  <!-- ============================================================= -->
+  <material name="chassis_black">
+    <color rgba="0.05 0.05 0.05 1.0"/>
+  </material>
+  <material name="chassis_grey">
+    <color rgba="0.3 0.3 0.3 1.0"/>
+  </material>
+  <material name="wheel_grey">
+    <color rgba="0.2 0.2 0.2 1.0"/>
+  </material>
+  <material name="sensor_blue">
+    <color rgba="0.1 0.3 0.8 1.0"/>
+  </material>
+  <material name="scooper_orange">
+    <color rgba="0.9 0.4 0.0 1.0"/>
+  </material>
+
+  <!-- ============================================================= -->
+  <!-- base_link (chassis)                                           -->
+  <!-- ============================================================= -->
+  <!-- base_link origin is the geometric centre of the robot at the
+       wheel-axle height (0.030 m above floor). The chassis box visual /
+       collision / inertial are offset upward by chassis_z. -->
+  <link name="base_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 -1.5708"/>
+        <geometry>
+          <mesh filename="package://unibots_description/meshes/Chassi_Unibot.stl" scale="0.001 0.001 0.001"/>
+        </geometry>
+        <material name="chassis_grey"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 ${chassis_z}" rpy="0 0 0"/>
+        <geometry>
+          <box size="${chassis_length} ${chassis_width} ${chassis_height}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <origin xyz="0 0 ${chassis_z}" rpy="0 0 0"/>
+        <mass value="${chassis_mass}"/>
+        <xacro:box_inertia m="${chassis_mass}" x="${chassis_length}" y="${chassis_width}" z="${chassis_height}"/>
+      </inertial>
+    </link>
+
+  <!-- ============================================================= -->
+  <!-- Mecanum roller macro (recursive)                              -->
+  <!-- ============================================================= -->
+  <!--
+    Places NUM_ROLLERS passive rollers around a wheel hub. Geometry per roller i:
+
+      theta_i = i * 2*pi / n              (angular position about the spin axis)
+
+      hub (fixed joint) to carrier_i : rpy = (0, theta_i, 0)
+          The carrier frame F1 (a pure rotation of the hub frame about the spin
+          axis y) has: x = circumferential tangent, y = axial (spin axis),
+          z = radial-outward.
+
+      carrier_i (continuous joint) to roller_i :
+          origin xyz = (0, 0, roller_mount_radius)   [out along F1.z = radial]
+          origin rpy = (0, pi/2, h*pi/4)             [orient the roller]
+          axis       = (0, 0, 1)                     [roller spins about its z]
+
+      Why that rpy works: URDF rpy gives R = Rz(yaw)*Ry(pitch)*Rx(roll). With
+      roll=0, pitch=pi/2, yaw=h*pi/4 this is Rz(h*pi/4)*Ry(pi/2). Applying it to
+      the roller's local z=(0,0,1): Ry(pi/2) sends z->x, then Rz(h*pi/4) rotates
+      it in the F1 x-y (tangent/axial) plane to (cos(h*pi/4), sin(h*pi/4), 0) =
+      (1, h, 0)/sqrt(2). So the roller spin axis sits at exactly 45 deg between
+      the tangent and the axial direction; the defining feature of a mecanum
+      roller. The handedness h = +/-1 selects which 45-deg diagonal.
+
+    Only the rollers have <collision>, so only they touch the ground.
+  -->
+  <xacro:macro name="mecanum_rollers" params="name h n i:=0">
+    <xacro:if value="${i &lt; n}">
+      <!-- Orientation-only carrier frame (fixed to the hub, hence lumped). -->
+      <link name="${name}_carrier_${i}">
+        <inertial>
+          <mass value="1e-5"/>
+          <inertia ixx="1e-9" ixy="0" ixz="0" iyy="1e-9" iyz="0" izz="1e-9"/>
+        </inertial>
+      </link>
+      <joint name="${name}_carrier_${i}_joint" type="fixed">
+        <parent link="${name}"/>
+        <child link="${name}_carrier_${i}"/>
+        <origin xyz="0 0 0" rpy="0 ${2.0*PI*i/n} 0"/>
+      </joint>
+
+      <!-- Passive free-spinning roller at the rim, axis at 45 deg. -->
+      <link name="${name}_roller_${i}">
+        <visual>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry>
+            <cylinder radius="${roller_radius}" length="${roller_length}"/>
+          </geometry>
+          <material name="wheel_grey"/>
+        </visual>
+        <collision>
+          <origin xyz="0 0 0" rpy="0 0 0"/>
+          <geometry>
+            <cylinder radius="${roller_radius}" length="${roller_length}"/>
+          </geometry>
+        </collision>
+        <inertial>
+          <mass value="${roller_mass}"/>
+          <xacro:cylinder_inertia m="${roller_mass}"
+                                  r="${roller_radius}"
+                                  l="${roller_length}"/>
+        </inertial>
+      </link>
+      <joint name="${name}_roller_${i}_joint" type="continuous">
+        <parent link="${name}_carrier_${i}"/>
+        <child link="${name}_roller_${i}"/>
+        <origin xyz="0 0 ${roller_mount_radius}" rpy="0 ${PI/2.0} ${h*PI/4.0}"/>
+        <axis xyz="0 0 1"/>
+        <!-- Roller damping + Coulomb friction. With perfectly free rollers the
+             chassis "coasts" on them after a command stops (and drifts in a
+             roller-phase-dependent direction). A little viscous damping + static
+             friction dissipates that residual momentum so the robot halts
+             promptly, while still allowing the rollers to spin enough for
+             strafing. TUNE: raise these if it still coasts; lower them if
+             strafing feels sluggish. -->
+        <dynamics damping="0.003" friction="0.005"/>
+      </joint>
+
+      <!-- Roller-ground contact friction (gentle stiffness for stability). -->
+      <gazebo reference="${name}_roller_${i}">
+        <mu1>1.0</mu1>
+        <mu2>1.0</mu2>
+        <kp>200000.0</kp>
+        <kd>10.0</kd>
+        <material>Gazebo/Grey</material>
+      </gazebo>
+
+      <!-- Recurse to the next roller. -->
+      <xacro:mecanum_rollers name="${name}" h="${h}" n="${n}" i="${i+1}"/>
+    </xacro:if>
+  </xacro:macro>
+
+  <!-- ============================================================= -->
+  <!-- Mecanum wheel macro (hub + rollers)                           -->
+  <!-- ============================================================= -->
+  <!--
+    The active wheel joint (axis = robot y) drives the HUB. The hub is visual +
+    inertial only (no ground collision); the rollers carried around it make the
+    ground contact. ros2_control commands only ${name}_joint, exactly as before;
+    the rollers are passive, so the velocity command interface is unchanged.
+
+    h = roller handedness (+1 / -1). Standard layout: FL & RR share one
+    handedness, FR & RL the other. If the robot strafes in the OPPOSITE
+    direction to the commanded vy, flip the sign of every wheel's h below.
+  -->
+  <xacro:macro name="wheel" params="name x y h">
+    <link name="${name}">
+      <visual>
+        <origin xyz="0 0 0" rpy="${PI/2.0} 0 0"/>
+        <geometry>
+          <cylinder radius="${hub_radius}" length="${wheel_width}"/>
+        </geometry>
+        <material name="chassis_black"/>
+      </visual>
+      <inertial>
+        <origin xyz="0 0 0" rpy="${PI/2.0} 0 0"/>
+        <mass value="${hub_mass}"/>
+        <xacro:cylinder_inertia m="${hub_mass}"
+                                r="${hub_radius}"
+                                l="${wheel_width}"/>
+      </inertial>
+    </link>
+
+    <joint name="${name}_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="${name}"/>
+      <!-- Wheel joints sit at the axle plane (z = 0 in base_link). -->
+      <origin xyz="${x} ${y} 0" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+      <dynamics damping="0.001" friction="0.0"/>
+    </joint>
+
+    <xacro:mecanum_rollers name="${name}" h="${h}" n="${num_rollers}"/>
+  </xacro:macro>
+
+  <!-- Wheel instances.
+       fl=(+x,+y) fr=(+x,-y) rl=(-x,+y) rr=(-x,-y)
+       Roller handedness: FL & RR = +1, FR & RL = -1 (standard mecanum). -->
+  <xacro:wheel name="wheel_fl" x="${ wheel_x_offset}" y="${ wheel_y_offset}" h="1"/>
+  <xacro:wheel name="wheel_fr" x="${ wheel_x_offset}" y="${-wheel_y_offset}" h="-1"/>
+  <xacro:wheel name="wheel_rl" x="${-wheel_x_offset}" y="${ wheel_y_offset}" h="-1"/>
+  <xacro:wheel name="wheel_rr" x="${-wheel_x_offset}" y="${-wheel_y_offset}" h="1"/>
+
+  <!-- ============================================================= -->
+  <!-- Camera                                                        -->
+  <!-- ============================================================= -->
+  <link name="camera_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.025 0.090 0.025"/>
+      </geometry>
+      <material name="sensor_blue"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.025 0.090 0.025"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.03"/>
+      <xacro:box_inertia m="0.03" x="0.025" y="0.090" z="0.025"/>
+    </inertial>
+  </link>
+
+  <!-- High-mounted USB webcam: 70 mm forward, 250 mm above floor,
+       15 deg (0.2618 rad) downward pitch. -->
+  <joint name="camera_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="camera_link"/>
+    <origin xyz="0.09991 0.0 0.1175" rpy="0 0.2618 0"/>
+  </joint>
+
+  <!-- Optical frame: ROS image convention (z forward, x right, y down). -->
+  <link name="camera_optical_frame"/>
+  <joint name="camera_optical_joint" type="fixed">
+    <parent link="camera_link"/>
+    <child link="camera_optical_frame"/>
+    <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
+  </joint>
+
+  <!-- ============================================================= -->
+  <!-- Scooper / intake gap marker                                   -->
+  <!-- ============================================================= -->
+  <!-- Marks the physical intake gap at the front; used for camera
+       blind-spot calculations. -->
+  <link name="scooper_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.010 0.120 0.030"/>
+      </geometry>
+      <material name="scooper_orange"/>
+    </visual>
+  </link>
+  <joint name="scooper_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="scooper_link"/>
+    <origin xyz="0.110 0.0 0.015" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ============================================================= -->
+  <!-- IMU (BNO055)                                                  -->
+  <!-- ============================================================= -->
+  <!-- At chassis centre. ASSUMPTION: mounted on the chassis centreline at
+       the axle height plane (z = 0.030 above floor == base_link level, so
+       xyz 0 0 0 relative to base_link). Given as "0 0 0" to match base_link
+       origin which already sits at 0.030 m. -->
+  <link name="imu_link">
+    <inertial>
+      <mass value="0.005"/>
+      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+    </inertial>
+  </link>
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <!-- xyz "0 0 0" relative to base_link == chassis centre at axle height. -->
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ============================================================= -->
+  <!-- ros2_control hardware interface                               -->
+  <!-- ============================================================= -->
+  <!--
+    Uses the Gazebo Harmonic gz_ros2_control system plugin. Each wheel joint
+    exposes a velocity command interface and position+velocity state
+    interfaces, which is what mecanum_drive_controller expects.
+
+    TO SWITCH TO REAL HARDWARE: replace the <hardware><plugin> below with a
+    real GPIO/motor-driver SystemInterface plugin (e.g. a custom
+    unibots_hardware/MecanumSystem) implementing the same joint interfaces.
+    No controller config changes are needed.
+  -->
+  <ros2_control name="UnibotsGazeboSystem" type="system">
+    <hardware>
+      <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+    </hardware>
+
+    <joint name="wheel_fl_joint">
+      <command_interface name="velocity"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="wheel_fr_joint">
+      <command_interface name="velocity"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="wheel_rl_joint">
+      <command_interface name="velocity"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="wheel_rr_joint">
+      <command_interface name="velocity"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+  </ros2_control>
+
+  <!-- ============================================================= -->
+  <!-- Gazebo: gz_ros2_control plugin                                -->
+  <!-- ============================================================= -->
+  <gazebo>
+    <plugin filename="libgz_ros2_control-system.so"
+            name="gz_ros2_control::GazeboSimROS2ControlPlugin">
+      <!-- Controllers YAML loaded by the controller_manager. -->
+      <parameters>$(find unibots_description)/config/robot_controllers.yaml</parameters>
+    </plugin>
+  </gazebo>
+
+  <!-- ============================================================= -->
+  <!-- Gazebo: wheel friction / material                             -->
+  <!-- ============================================================= -->
+  <!--
+    Wheel HUBS carry no ground collision (the rollers do, see mecanum_rollers),
+    so only the visual material is set here. All ground-contact friction lives on
+    the roller links. Real 45-deg passive rollers reproduce true mecanum motion,
+    so forward/back, rotation, AND strafing all work physically in Gazebo.
+  -->
+  <xacro:macro name="wheel_hub_gazebo" params="name">
+    <gazebo reference="${name}">
+      <material>Gazebo/Black</material>
+    </gazebo>
+  </xacro:macro>
+  <xacro:wheel_hub_gazebo name="wheel_fl"/>
+  <xacro:wheel_hub_gazebo name="wheel_fr"/>
+  <xacro:wheel_hub_gazebo name="wheel_rl"/>
+  <xacro:wheel_hub_gazebo name="wheel_rr"/>
+
+  <gazebo reference="base_link">
+    <material>Gazebo/Black</material>
+  </gazebo>
+
+  <!-- ============================================================= -->
+  <!-- Gazebo: camera sensor (Harmonic SDF)                          -->
+  <!-- ============================================================= -->
+  <gazebo reference="camera_link">
+    <sensor name="camera" type="camera">
+      <pose>0 0 0 0 0 0</pose>
+      <update_rate>30</update_rate>
+      <always_on>1</always_on>
+      <visualize>true</visualize>
+      <topic>camera</topic>
+      <camera>
+        <!-- ~70 deg horizontal FOV USB webcam (1.204 rad). -->
+        <horizontal_fov>1.204</horizontal_fov>
+        <image>
+          <width>640</width>
+          <height>480</height>
+          <format>R8G8B8</format>
+        </image>
+        <clip>
+          <near>0.02</near>
+          <far>20.0</far>
+        </clip>
+        <!-- Report data in the ROS optical frame for correct image axes. -->
+        <optical_frame_id>camera_optical_frame</optical_frame_id>
+      </camera>
+    </sensor>
+  </gazebo>
+
+  <!-- ============================================================= -->
+  <!-- Gazebo: IMU sensor (Harmonic SDF)                             -->
+  <!-- ============================================================= -->
+  <gazebo reference="imu_link">
+    <sensor name="imu" type="imu">
+      <always_on>1</always_on>
+      <update_rate>100</update_rate>
+      <visualize>false</visualize>
+      <topic>imu</topic>
+      <enable_metrics>false</enable_metrics>
+      <imu>
+        <angular_velocity>
+          <x><noise type="gaussian"><mean>0.0</mean><stddev>0.0002</stddev></noise></x>
+          <y><noise type="gaussian"><mean>0.0</mean><stddev>0.0002</stddev></noise></y>
+          <z><noise type="gaussian"><mean>0.0</mean><stddev>0.0002</stddev></noise></z>
+        </angular_velocity>
+        <linear_acceleration>
+          <x><noise type="gaussian"><mean>0.0</mean><stddev>0.017</stddev></noise></x>
+          <y><noise type="gaussian"><mean>0.0</mean><stddev>0.017</stddev></noise></y>
+          <z><noise type="gaussian"><mean>0.0</mean><stddev>0.017</stddev></noise></z>
+        </linear_acceleration>
+      </imu>
+    </sensor>
+  </gazebo>
+</robot>

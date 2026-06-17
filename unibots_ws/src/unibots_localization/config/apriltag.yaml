@@ -1,0 +1,21 @@
+# =============================================================================
+# apriltag_node parameters -- Unibots UK 2026
+# =============================================================================
+# Minimal config for christianrauch/apriltag_ros `apriltag_node`. The arena uses
+# the 36h11 family at 100 mm. The detector publishes /apriltag/detections and a
+# TF (camera_optical_frame -> tag36h11:<id>) which ekf_bridge_node consumes.
+# =============================================================================
+apriltag_node:
+  ros__parameters:
+    image_transport: raw
+    family: 36h11           # arena tag family
+    size: 0.1               # tag edge length in metres (100 mm)
+    max_hamming: 0          # require exact decode (no bit corrections)
+    detector:
+      threads: 2
+      decimate: 2.0         # downsample for speed; fine for 100 mm tags
+      blur: 0.0
+      refine: true          # subpixel corner refinement -> better pose
+      sharpening: 0.25
+      debug: false
+    # Per-tag publishing is left to defaults; all 24 ids are valid.

@@ -1,0 +1,2033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>CVXPYgen — generated_solver</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --blue:        #1565c0;
+      --blue-dark:   #0d47a1;
+      --blue-light:  #e3f2fd;
+      --blue-mid:    #1976d2;
+      --sidebar-bg:  #f8f9fb;
+      --sidebar-bd:  #d9dde6;
+      --code-bg:     #f6f8fa;
+      --code-bd:     #dde1e7;
+      --border:      #e1e4e8;
+      --text:        #24292e;
+      --muted:       #6a737d;
+      --hover-bg:    #edf2ff;
+      --active-bg:   #dbeafe;
+      --active-fg:   #1d4ed8;
+      --r:           4px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.65;
+      color: var(--text);
+      background: #fff;
+    }
+
+    /* ── Top bar ── */
+    .topbar {
+      position: sticky; top: 0; z-index: 200;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 52px; padding: 0 24px;
+      background: var(--blue-dark);
+      box-shadow: 0 2px 6px rgba(0,0,0,.3);
+      color: #fff;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 14px; }
+    .topbar-logo { font-size: 18px; font-weight: 700; letter-spacing: .03em; color: #fff; }
+    .topbar-logo a { color: inherit; text-decoration: none; }
+    .topbar-logo a:hover { text-decoration: none; }
+    .topbar-sub {
+      font-size: 12.5px; opacity: .75;
+      border-left: 1px solid rgba(255,255,255,.35);
+      padding-left: 14px;
+    }
+    .topbar-date { font-size: 11px; opacity: .6; text-align: right; }
+
+    /* ── Page layout ── */
+    .layout { display: flex; min-height: calc(100vh - 52px); }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width: 256px; min-width: 256px;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--sidebar-bd);
+      position: sticky; top: 52px;
+      height: calc(100vh - 52px);
+      overflow-y: auto;
+      padding: 18px 0 24px;
+    }
+    .sidebar-root-label {
+      padding: 0 16px 8px;
+      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 12px; font-weight: 700;
+      letter-spacing: .04em;
+      color: var(--blue-dark);
+    }
+
+    /* File tree */
+    .tree, .tree ul { list-style: none; }
+    .tree { padding: 0 8px; }
+    .tree ul { padding-left: 14px; }
+    .tree-row {
+      display: flex; align-items: center; gap: 5px;
+      padding: 3px 8px;
+      border-radius: var(--r);
+      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 12.5px;
+      white-space: nowrap;
+    }
+    .tree-folder { color: var(--muted); user-select: none; }
+    .tree-folder::before { content: '▾'; font-size: 9px; margin-right: 3px; }
+    .tree-static { color: var(--muted); padding-left: 16px; opacity: .65; }
+    .tree-file {
+      color: var(--text);
+      cursor: pointer;
+      transition: background .1s;
+    }
+    .tree-file::before { content: '·'; color: var(--muted); margin-right: 4px; }
+    .tree-file:hover { background: var(--hover-bg); }
+    .tree-file.active {
+      background: var(--active-bg);
+      color: var(--active-fg);
+      font-weight: 600;
+    }
+    .tree-file.active::before { content: '▸'; color: var(--active-fg); }
+
+    /* ── Main panel ── */
+    .main {
+      flex: 1; min-width: 0;
+      padding: 32px 44px 56px;
+      max-width: 840px;
+    }
+    section { margin-bottom: 40px; }
+    h2 {
+      font-size: 19px; font-weight: 700;
+      color: var(--blue-dark);
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--blue-light);
+      margin-bottom: 16px;
+    }
+    h3 { font-size: 15px; font-weight: 600; color: var(--blue); margin-bottom: 10px; }
+    p { margin-bottom: 12px; }
+    a { color: var(--blue-mid); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    code {
+      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 12.5px;
+      background: var(--code-bg);
+      border: 1px solid var(--code-bd);
+      border-radius: 3px;
+      padding: 1px 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--code-bd);
+      border-radius: var(--r);
+      padding: 14px 18px;
+      overflow-x: auto;
+      margin-bottom: 14px;
+    }
+    pre code { background: none; border: none; padding: 0; font-size: 13px; }
+
+    /* ── Problem Summary tables ── */
+    .tables-row { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+    .summary-table { border-collapse: collapse; font-size: 13px; }
+    .summary-table th {
+      background: var(--blue-dark); color: #fff;
+      padding: 0 16px; height: 34px; text-align: left; font-weight: 600;
+    }
+    .summary-table th:first-child { border-radius: var(--r) 0 0 0; }
+    .summary-table th:last-child  { border-radius: 0 var(--r) 0 0; }
+    .summary-table td { padding: 0 16px; height: 32px; border-bottom: 1px solid var(--border); }
+    .summary-table tr:last-child td { border-bottom: none; }
+    .summary-table tr:nth-child(even) td { background: #f5f8ff; }
+    .summary-table code { background: none; border: none; }
+
+    /* ── File detail panels ── */
+    .file-panel { display: none; }
+    .file-panel.active { display: block; }
+    .file-hint {
+      padding: 40px 24px;
+      text-align: center;
+      color: var(--muted);
+      background: var(--sidebar-bg);
+      border: 1px dashed var(--border);
+      border-radius: var(--r);
+    }
+    .file-hint-icon { font-size: 30px; margin-bottom: 10px; }
+    .file-path-badge {
+      display: inline-block;
+      background: var(--blue-light);
+      color: var(--blue-dark);
+      border: 1px solid #b3d2f5;
+      border-radius: var(--r);
+      font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+      font-size: 12.5px;
+      padding: 5px 12px;
+      margin-bottom: 16px;
+    }
+
+    /* ── Tabs ── */
+    .tab-group { margin-bottom: 20px; }
+    .tab-bar { display: flex; margin-bottom: -1px; }
+    .tab-btn {
+      padding: 6px 18px;
+      font-size: 13px; font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      background: #fff;
+      color: var(--muted);
+      border-radius: var(--r) var(--r) 0 0;
+      transition: background .1s, color .1s;
+      margin-right: 2px;
+    }
+    .tab-btn:hover { background: var(--hover-bg); color: var(--blue); }
+    .tab-btn.active { background: var(--code-bg); color: var(--blue); font-weight: 600; border-bottom: 1px solid var(--code-bg); }
+    .tab-body { background: var(--code-bg); border: 1px solid var(--border); border-radius: 0 var(--r) var(--r) var(--r); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .tab-body pre { border: none; border-radius: 0 var(--r) var(--r) var(--r); margin: 0; }
+
+    /* ── Usage sub-sections ── */
+    .usage-block { margin-bottom: 28px; }
+  </style>
+</head>
+<body>
+
+<!-- ── Top bar ── -->
+<header class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-logo"><a href="https://github.com/cvxgrp/cvxpygen" target="_blank">CVXPYgen</a></span>
+    <span class="topbar-sub">Generated code documentation</span>
+  </div>
+  <span class="topbar-date">
+  Copyright 2021-2026 Maximilian Schaller and the CVXPYgen contributors. Licensed under the Apache License, Version 2.0
+  <br>Generated on June 16, 2026 at 23:32:42
+  </span>
+</header>
+
+<div class="layout">
+
+  <!-- ── Sidebar: file tree ── -->
+  <nav class="sidebar" aria-label="File tree">
+    <div class="sidebar-root-label">generated_solver/</div>
+    <ul class="tree">
+      <li>
+        <span class="tree-row tree-folder">c/</span>
+        <ul>
+          <li>
+            <span class="tree-row tree-file" data-panel="f-solver-code">solver_code/</span>
+            <ul><li><span class="tree-row tree-static">…</span></li></ul>
+          </li>
+          <li>
+            <span class="tree-row tree-folder">include/</span>
+            <ul>
+              <li><span class="tree-row tree-file" data-panel="f-workspace-h">cpg_workspace.h</span></li>
+              <li><span class="tree-row tree-file" data-panel="f-solve-h">cpg_solve.h</span></li>
+            </ul>
+          </li>
+          <li>
+            <span class="tree-row tree-folder">src/</span>
+            <ul>
+              <li><span class="tree-row tree-file" data-panel="f-workspace-c">cpg_workspace.c</span></li>
+              <li><span class="tree-row tree-file" data-panel="f-solve-c">cpg_solve.c</span></li>
+              <li><span class="tree-row tree-file" data-panel="f-example-c">cpg_example.c</span></li>
+            </ul>
+          </li>
+          <li><span class="tree-row tree-folder">build/</span></li>
+          <li><span class="tree-row tree-file" data-panel="f-cmake">CMakeLists.txt</span></li>
+        </ul>
+      </li>
+      <li>
+        <span class="tree-row tree-folder">cpp/</span>
+        <ul>
+          <li>
+            <span class="tree-row tree-folder">include/</span>
+            <ul>
+              <li><span class="tree-row tree-file" data-panel="f-module-hpp">cpg_module.hpp</span></li>
+            </ul>
+          </li>
+          <li>
+            <span class="tree-row tree-folder">src/</span>
+            <ul>
+              <li><span class="tree-row tree-file" data-panel="f-module-cpp">cpg_module.cpp</span></li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+      <li><span class="tree-row tree-file" data-panel="f-root-cmake">CMakeLists.txt</span></li>
+      <li><span class="tree-row tree-file" data-panel="f-setup">pyproject.toml</span></li>
+      <li><span class="tree-row tree-file" data-panel="f-solver-py">cpg_solver.py</span></li>
+      <li><span class="tree-row tree-static">LICENSE</span></li>
+      <li><span class="tree-row tree-static">README.html</span></li>
+    </ul>
+  </nav>
+
+  <!-- ── Main content ── -->
+  <main class="main">
+
+    <!-- Problem Summary -->
+    <section>
+      <h2>Problem Summary</h2>
+      <p>Your optimization problem has the following parameters and variables.
+         Dual variable <code>di</code> corresponds to the <code>i</code>th constraint in your formulation.
+         Sizes after flattening (considering only nonzero entries) are given in parentheses.</p>
+      <div class="tables-row">
+        <table class="summary-table">
+          <tr><th>Parameter</th><th>Dimension</th></tr>
+                <tr>
+        <td><code>x_ref</code></td>
+        <td>3 by 11 (33)</td>
+      </tr>
+      <tr>
+        <td><code>x0</code></td>
+        <td>3</td>
+      </tr>
+      <tr>
+        <td><code>B_0</code></td>
+        <td>3 by 3 (9)</td>
+      </tr>
+      <tr>
+        <td><code>B_1</code></td>
+        <td>3 by 3 (9)</td>
+      </tr>
+      <tr>
+        <td><code>B_2</code></td>
+        <td>3 by 3 (9)</td>
+      </tr>
+      <tr>
+        <td><code>B_3</code></td>
+        <td>3 by 3 (9)</td>
+      </tr>
+      <tr>
+        <td><code>B_4</code></td>
+        <td>3 by 3 (9)</td>
+      </tr>
+      <tr>
+        <td><code>B_5</code></td>
+        <td>3 by 3 (9)</td>
+      </tr>
+      <tr>
+        <td><code>B_6</code></td>
+        <td>3 by 3 (9)</td>
+      </tr>
+      <tr>
+        <td><code>B_7</code></td>
+        <td>3 by 3 (9)</td>
+      </tr>
+      <tr>
+        <td><code>B_8</code></td>
+        <td>3 by 3 (9)</td>
+      </tr>
+      <tr>
+        <td><code>B_9</code></td>
+        <td>3 by 3 (9)</td>
+      </tr>
+      <tr>
+        <td><code>d_0_0</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_0_0</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_0_1</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_0_1</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_0_2</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_0_2</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_0_3</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_0_3</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_0_4</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_0_4</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_0_5</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_0_5</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_1_0</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_1_0</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_1_1</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_1_1</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_1_2</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_1_2</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_1_3</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_1_3</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_1_4</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_1_4</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_1_5</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_1_5</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_2_0</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_2_0</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_2_1</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_2_1</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_2_2</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_2_2</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_2_3</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_2_3</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_2_4</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_2_4</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_2_5</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_2_5</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_3_0</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_3_0</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_3_1</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_3_1</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_3_2</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_3_2</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_3_3</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_3_3</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_3_4</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_3_4</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_3_5</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_3_5</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_4_0</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_4_0</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_4_1</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_4_1</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_4_2</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_4_2</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_4_3</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_4_3</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_4_4</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_4_4</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_4_5</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_4_5</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_5_0</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_5_0</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_5_1</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_5_1</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_5_2</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_5_2</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_5_3</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_5_3</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_5_4</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_5_4</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_5_5</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_5_5</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_6_0</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_6_0</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_6_1</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_6_1</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_6_2</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_6_2</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_6_3</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_6_3</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_6_4</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_6_4</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_6_5</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_6_5</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_7_0</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_7_0</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_7_1</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_7_1</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_7_2</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_7_2</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_7_3</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_7_3</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_7_4</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_7_4</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_7_5</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_7_5</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_8_0</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_8_0</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_8_1</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_8_1</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_8_2</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_8_2</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_8_3</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_8_3</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_8_4</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_8_4</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_8_5</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_8_5</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_9_0</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_9_0</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_9_1</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_9_1</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_9_2</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_9_2</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_9_3</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_9_3</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_9_4</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_9_4</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_9_5</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_9_5</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_10_0</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_10_0</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_10_1</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_10_1</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_10_2</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_10_2</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_10_3</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_10_3</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_10_4</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_10_4</code></td>
+        <td>2</td>
+      </tr>
+      <tr>
+        <td><code>d_10_5</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>n_10_5</code></td>
+        <td>2</td>
+      </tr>
+
+        </table>
+        <table class="summary-table">
+          <tr><th>Primal Variable</th><th>Dimension</th></tr>
+                <tr>
+        <td><code>x</code></td>
+        <td>3 by 11 (33)</td>
+      </tr>
+      <tr>
+        <td><code>u</code></td>
+        <td>3 by 10 (30)</td>
+      </tr>
+      <tr>
+        <td><code>s_wall</code></td>
+        <td>4 by 11 (44)</td>
+      </tr>
+      <tr>
+        <td><code>s_obs</code></td>
+        <td>6 by 11 (66)</td>
+      </tr>
+
+        </table>
+        <table class="summary-table">
+          <tr><th>Dual Variable</th><th>Dimension</th></tr>
+                <tr>
+        <td><code>d0</code></td>
+        <td>3</td>
+      </tr>
+      <tr>
+        <td><code>d1</code></td>
+        <td>3</td>
+      </tr>
+      <tr>
+        <td><code>d2</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d3</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d4</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d5</code></td>
+        <td>3</td>
+      </tr>
+      <tr>
+        <td><code>d6</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d7</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d8</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d9</code></td>
+        <td>3</td>
+      </tr>
+      <tr>
+        <td><code>d10</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d11</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d12</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d13</code></td>
+        <td>3</td>
+      </tr>
+      <tr>
+        <td><code>d14</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d15</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d16</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d17</code></td>
+        <td>3</td>
+      </tr>
+      <tr>
+        <td><code>d18</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d19</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d20</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d21</code></td>
+        <td>3</td>
+      </tr>
+      <tr>
+        <td><code>d22</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d23</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d24</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d25</code></td>
+        <td>3</td>
+      </tr>
+      <tr>
+        <td><code>d26</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d27</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d28</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d29</code></td>
+        <td>3</td>
+      </tr>
+      <tr>
+        <td><code>d30</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d31</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d32</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d33</code></td>
+        <td>3</td>
+      </tr>
+      <tr>
+        <td><code>d34</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d35</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d36</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d37</code></td>
+        <td>3</td>
+      </tr>
+      <tr>
+        <td><code>d38</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d39</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d40</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d41</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d42</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d43</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d44</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d45</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d46</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d47</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d48</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d49</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d50</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d51</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d52</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d53</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d54</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d55</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d56</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d57</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d58</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d59</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d60</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d61</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d62</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d63</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d64</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d65</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d66</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d67</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d68</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d69</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d70</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d71</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d72</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d73</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d74</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d75</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d76</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d77</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d78</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d79</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d80</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d81</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d82</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d83</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d84</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d85</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d86</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d87</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d88</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d89</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d90</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d91</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d92</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d93</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d94</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d95</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d96</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d97</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d98</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d99</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d100</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d101</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d102</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d103</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d104</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d105</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d106</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d107</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d108</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d109</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d110</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d111</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d112</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d113</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d114</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d115</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d116</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d117</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d118</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d119</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d120</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d121</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d122</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d123</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d124</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d125</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d126</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d127</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d128</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d129</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d130</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d131</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d132</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d133</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d134</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d135</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d136</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d137</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d138</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d139</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d140</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d141</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d142</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d143</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d144</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d145</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d146</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d147</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d148</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d149</code></td>
+        <td>1</td>
+      </tr>
+      <tr>
+        <td><code>d150</code></td>
+        <td>1</td>
+      </tr>
+
+        </table>
+      </div>
+    </section>
+
+    <!-- File Contents -->
+    <section id="file-contents-section" style="scroll-margin-top: 64px;">
+      <h2>File Contents</h2>
+
+      <!-- Default placeholder -->
+      <div class="file-panel active" id="f-default">
+        <div class="file-hint">
+          <div class="file-hint-icon">📂</div>
+          <div>Select a file from the tree on the left to view its contents.</div>
+        </div>
+      </div>
+
+      <!-- cpg_workspace.h -->
+      <div class="file-panel" id="f-workspace-h">
+        <div class="file-path-badge">c/include/cpg_workspace.h</div>
+        <p>Contains type definitions and variable declarations. The following types are part of the C interface:</p>
+        <pre><code>// Struct type with primal solution
+typedef struct {
+  cpg_float    *x;         // Your variable x
+  cpg_float    *u;         // Your variable u
+  cpg_float    *s_wall;    // Your variable s_wall
+  cpg_float    *s_obs;     // Your variable s_obs
+} CPG_Prim_t;
+
+// Struct type with dual solution
+typedef struct {
+  cpg_float    *d0;        // Your dual variable for constraint d0
+  cpg_float    *d1;        // Your dual variable for constraint d1
+  cpg_float    d2;         // Your dual variable for constraint d2
+  cpg_float    d3;         // Your dual variable for constraint d3
+  cpg_float    d4;         // Your dual variable for constraint d4
+  cpg_float    *d5;        // Your dual variable for constraint d5
+  cpg_float    d6;         // Your dual variable for constraint d6
+  cpg_float    d7;         // Your dual variable for constraint d7
+  cpg_float    d8;         // Your dual variable for constraint d8
+  cpg_float    *d9;        // Your dual variable for constraint d9
+  cpg_float    d10;        // Your dual variable for constraint d10
+  cpg_float    d11;        // Your dual variable for constraint d11
+  cpg_float    d12;        // Your dual variable for constraint d12
+  cpg_float    *d13;       // Your dual variable for constraint d13
+  cpg_float    d14;        // Your dual variable for constraint d14
+  cpg_float    d15;        // Your dual variable for constraint d15
+  cpg_float    d16;        // Your dual variable for constraint d16
+  cpg_float    *d17;       // Your dual variable for constraint d17
+  cpg_float    d18;        // Your dual variable for constraint d18
+  cpg_float    d19;        // Your dual variable for constraint d19
+  cpg_float    d20;        // Your dual variable for constraint d20
+  cpg_float    *d21;       // Your dual variable for constraint d21
+  cpg_float    d22;        // Your dual variable for constraint d22
+  cpg_float    d23;        // Your dual variable for constraint d23
+  cpg_float    d24;        // Your dual variable for constraint d24
+  cpg_float    *d25;       // Your dual variable for constraint d25
+  cpg_float    d26;        // Your dual variable for constraint d26
+  cpg_float    d27;        // Your dual variable for constraint d27
+  cpg_float    d28;        // Your dual variable for constraint d28
+  cpg_float    *d29;       // Your dual variable for constraint d29
+  cpg_float    d30;        // Your dual variable for constraint d30
+  cpg_float    d31;        // Your dual variable for constraint d31
+  cpg_float    d32;        // Your dual variable for constraint d32
+  cpg_float    *d33;       // Your dual variable for constraint d33
+  cpg_float    d34;        // Your dual variable for constraint d34
+  cpg_float    d35;        // Your dual variable for constraint d35
+  cpg_float    d36;        // Your dual variable for constraint d36
+  cpg_float    *d37;       // Your dual variable for constraint d37
+  cpg_float    d38;        // Your dual variable for constraint d38
+  cpg_float    d39;        // Your dual variable for constraint d39
+  cpg_float    d40;        // Your dual variable for constraint d40
+  cpg_float    d41;        // Your dual variable for constraint d41
+  cpg_float    d42;        // Your dual variable for constraint d42
+  cpg_float    d43;        // Your dual variable for constraint d43
+  cpg_float    d44;        // Your dual variable for constraint d44
+  cpg_float    d45;        // Your dual variable for constraint d45
+  cpg_float    d46;        // Your dual variable for constraint d46
+  cpg_float    d47;        // Your dual variable for constraint d47
+  cpg_float    d48;        // Your dual variable for constraint d48
+  cpg_float    d49;        // Your dual variable for constraint d49
+  cpg_float    d50;        // Your dual variable for constraint d50
+  cpg_float    d51;        // Your dual variable for constraint d51
+  cpg_float    d52;        // Your dual variable for constraint d52
+  cpg_float    d53;        // Your dual variable for constraint d53
+  cpg_float    d54;        // Your dual variable for constraint d54
+  cpg_float    d55;        // Your dual variable for constraint d55
+  cpg_float    d56;        // Your dual variable for constraint d56
+  cpg_float    d57;        // Your dual variable for constraint d57
+  cpg_float    d58;        // Your dual variable for constraint d58
+  cpg_float    d59;        // Your dual variable for constraint d59
+  cpg_float    d60;        // Your dual variable for constraint d60
+  cpg_float    d61;        // Your dual variable for constraint d61
+  cpg_float    d62;        // Your dual variable for constraint d62
+  cpg_float    d63;        // Your dual variable for constraint d63
+  cpg_float    d64;        // Your dual variable for constraint d64
+  cpg_float    d65;        // Your dual variable for constraint d65
+  cpg_float    d66;        // Your dual variable for constraint d66
+  cpg_float    d67;        // Your dual variable for constraint d67
+  cpg_float    d68;        // Your dual variable for constraint d68
+  cpg_float    d69;        // Your dual variable for constraint d69
+  cpg_float    d70;        // Your dual variable for constraint d70
+  cpg_float    d71;        // Your dual variable for constraint d71
+  cpg_float    d72;        // Your dual variable for constraint d72
+  cpg_float    d73;        // Your dual variable for constraint d73
+  cpg_float    d74;        // Your dual variable for constraint d74
+  cpg_float    d75;        // Your dual variable for constraint d75
+  cpg_float    d76;        // Your dual variable for constraint d76
+  cpg_float    d77;        // Your dual variable for constraint d77
+  cpg_float    d78;        // Your dual variable for constraint d78
+  cpg_float    d79;        // Your dual variable for constraint d79
+  cpg_float    d80;        // Your dual variable for constraint d80
+  cpg_float    d81;        // Your dual variable for constraint d81
+  cpg_float    d82;        // Your dual variable for constraint d82
+  cpg_float    d83;        // Your dual variable for constraint d83
+  cpg_float    d84;        // Your dual variable for constraint d84
+  cpg_float    d85;        // Your dual variable for constraint d85
+  cpg_float    d86;        // Your dual variable for constraint d86
+  cpg_float    d87;        // Your dual variable for constraint d87
+  cpg_float    d88;        // Your dual variable for constraint d88
+  cpg_float    d89;        // Your dual variable for constraint d89
+  cpg_float    d90;        // Your dual variable for constraint d90
+  cpg_float    d91;        // Your dual variable for constraint d91
+  cpg_float    d92;        // Your dual variable for constraint d92
+  cpg_float    d93;        // Your dual variable for constraint d93
+  cpg_float    d94;        // Your dual variable for constraint d94
+  cpg_float    d95;        // Your dual variable for constraint d95
+  cpg_float    d96;        // Your dual variable for constraint d96
+  cpg_float    d97;        // Your dual variable for constraint d97
+  cpg_float    d98;        // Your dual variable for constraint d98
+  cpg_float    d99;        // Your dual variable for constraint d99
+  cpg_float    d100;       // Your dual variable for constraint d100
+  cpg_float    d101;       // Your dual variable for constraint d101
+  cpg_float    d102;       // Your dual variable for constraint d102
+  cpg_float    d103;       // Your dual variable for constraint d103
+  cpg_float    d104;       // Your dual variable for constraint d104
+  cpg_float    d105;       // Your dual variable for constraint d105
+  cpg_float    d106;       // Your dual variable for constraint d106
+  cpg_float    d107;       // Your dual variable for constraint d107
+  cpg_float    d108;       // Your dual variable for constraint d108
+  cpg_float    d109;       // Your dual variable for constraint d109
+  cpg_float    d110;       // Your dual variable for constraint d110
+  cpg_float    d111;       // Your dual variable for constraint d111
+  cpg_float    d112;       // Your dual variable for constraint d112
+  cpg_float    d113;       // Your dual variable for constraint d113
+  cpg_float    d114;       // Your dual variable for constraint d114
+  cpg_float    d115;       // Your dual variable for constraint d115
+  cpg_float    d116;       // Your dual variable for constraint d116
+  cpg_float    d117;       // Your dual variable for constraint d117
+  cpg_float    d118;       // Your dual variable for constraint d118
+  cpg_float    d119;       // Your dual variable for constraint d119
+  cpg_float    d120;       // Your dual variable for constraint d120
+  cpg_float    d121;       // Your dual variable for constraint d121
+  cpg_float    d122;       // Your dual variable for constraint d122
+  cpg_float    d123;       // Your dual variable for constraint d123
+  cpg_float    d124;       // Your dual variable for constraint d124
+  cpg_float    d125;       // Your dual variable for constraint d125
+  cpg_float    d126;       // Your dual variable for constraint d126
+  cpg_float    d127;       // Your dual variable for constraint d127
+  cpg_float    d128;       // Your dual variable for constraint d128
+  cpg_float    d129;       // Your dual variable for constraint d129
+  cpg_float    d130;       // Your dual variable for constraint d130
+  cpg_float    d131;       // Your dual variable for constraint d131
+  cpg_float    d132;       // Your dual variable for constraint d132
+  cpg_float    d133;       // Your dual variable for constraint d133
+  cpg_float    d134;       // Your dual variable for constraint d134
+  cpg_float    d135;       // Your dual variable for constraint d135
+  cpg_float    d136;       // Your dual variable for constraint d136
+  cpg_float    d137;       // Your dual variable for constraint d137
+  cpg_float    d138;       // Your dual variable for constraint d138
+  cpg_float    d139;       // Your dual variable for constraint d139
+  cpg_float    d140;       // Your dual variable for constraint d140
+  cpg_float    d141;       // Your dual variable for constraint d141
+  cpg_float    d142;       // Your dual variable for constraint d142
+  cpg_float    d143;       // Your dual variable for constraint d143
+  cpg_float    d144;       // Your dual variable for constraint d144
+  cpg_float    d145;       // Your dual variable for constraint d145
+  cpg_float    d146;       // Your dual variable for constraint d146
+  cpg_float    d147;       // Your dual variable for constraint d147
+  cpg_float    d148;       // Your dual variable for constraint d148
+  cpg_float    d149;       // Your dual variable for constraint d149
+  cpg_float    d150;       // Your dual variable for constraint d150
+} CPG_Dual_t;
+
+// Struct type with canonical solver information
+typedef struct {
+  cpg_float    obj_val;    // Objective function value
+  cpg_int      iter;       // Number of iterations
+  char         *status;    // Solver status
+  cpg_float    pri_res;    // Primal residual
+  cpg_float    dua_res;    // Dual residual
+} CPG_Info_t;
+
+// Struct type with user-defined objective value and solution as fields
+typedef struct {
+  CPG_Prim_t *prim;        // Primal solution
+  CPG_Dual_t *dual;        // Dual solution
+  CPG_Info_t *info;        // Solver information
+} CPG_Result_t;</code></pre>
+      </div>
+
+      <!-- cpg_solve.h -->
+      <div class="file-panel" id="f-solve-h">
+        <div class="file-path-badge">c/include/cpg_solve.h</div>
+        <p>Contains function prototypes. Relevant for the C interface:</p>
+        <pre><code>// Update user-defined parameter values
+void cpg_update_x_ref(cpg_int idx, cpg_float value);
+void cpg_update_x0(cpg_int idx, cpg_float value);
+void cpg_update_B_0(cpg_int idx, cpg_float value);
+void cpg_update_B_1(cpg_int idx, cpg_float value);
+void cpg_update_B_2(cpg_int idx, cpg_float value);
+void cpg_update_B_3(cpg_int idx, cpg_float value);
+void cpg_update_B_4(cpg_int idx, cpg_float value);
+void cpg_update_B_5(cpg_int idx, cpg_float value);
+void cpg_update_B_6(cpg_int idx, cpg_float value);
+void cpg_update_B_7(cpg_int idx, cpg_float value);
+void cpg_update_B_8(cpg_int idx, cpg_float value);
+void cpg_update_B_9(cpg_int idx, cpg_float value);
+void cpg_update_d_0_0(cpg_float value);
+void cpg_update_n_0_0(cpg_int idx, cpg_float value);
+void cpg_update_d_0_1(cpg_float value);
+void cpg_update_n_0_1(cpg_int idx, cpg_float value);
+void cpg_update_d_0_2(cpg_float value);
+void cpg_update_n_0_2(cpg_int idx, cpg_float value);
+void cpg_update_d_0_3(cpg_float value);
+void cpg_update_n_0_3(cpg_int idx, cpg_float value);
+void cpg_update_d_0_4(cpg_float value);
+void cpg_update_n_0_4(cpg_int idx, cpg_float value);
+void cpg_update_d_0_5(cpg_float value);
+void cpg_update_n_0_5(cpg_int idx, cpg_float value);
+void cpg_update_d_1_0(cpg_float value);
+void cpg_update_n_1_0(cpg_int idx, cpg_float value);
+void cpg_update_d_1_1(cpg_float value);
+void cpg_update_n_1_1(cpg_int idx, cpg_float value);
+void cpg_update_d_1_2(cpg_float value);
+void cpg_update_n_1_2(cpg_int idx, cpg_float value);
+void cpg_update_d_1_3(cpg_float value);
+void cpg_update_n_1_3(cpg_int idx, cpg_float value);
+void cpg_update_d_1_4(cpg_float value);
+void cpg_update_n_1_4(cpg_int idx, cpg_float value);
+void cpg_update_d_1_5(cpg_float value);
+void cpg_update_n_1_5(cpg_int idx, cpg_float value);
+void cpg_update_d_2_0(cpg_float value);
+void cpg_update_n_2_0(cpg_int idx, cpg_float value);
+void cpg_update_d_2_1(cpg_float value);
+void cpg_update_n_2_1(cpg_int idx, cpg_float value);
+void cpg_update_d_2_2(cpg_float value);
+void cpg_update_n_2_2(cpg_int idx, cpg_float value);
+void cpg_update_d_2_3(cpg_float value);
+void cpg_update_n_2_3(cpg_int idx, cpg_float value);
+void cpg_update_d_2_4(cpg_float value);
+void cpg_update_n_2_4(cpg_int idx, cpg_float value);
+void cpg_update_d_2_5(cpg_float value);
+void cpg_update_n_2_5(cpg_int idx, cpg_float value);
+void cpg_update_d_3_0(cpg_float value);
+void cpg_update_n_3_0(cpg_int idx, cpg_float value);
+void cpg_update_d_3_1(cpg_float value);
+void cpg_update_n_3_1(cpg_int idx, cpg_float value);
+void cpg_update_d_3_2(cpg_float value);
+void cpg_update_n_3_2(cpg_int idx, cpg_float value);
+void cpg_update_d_3_3(cpg_float value);
+void cpg_update_n_3_3(cpg_int idx, cpg_float value);
+void cpg_update_d_3_4(cpg_float value);
+void cpg_update_n_3_4(cpg_int idx, cpg_float value);
+void cpg_update_d_3_5(cpg_float value);
+void cpg_update_n_3_5(cpg_int idx, cpg_float value);
+void cpg_update_d_4_0(cpg_float value);
+void cpg_update_n_4_0(cpg_int idx, cpg_float value);
+void cpg_update_d_4_1(cpg_float value);
+void cpg_update_n_4_1(cpg_int idx, cpg_float value);
+void cpg_update_d_4_2(cpg_float value);
+void cpg_update_n_4_2(cpg_int idx, cpg_float value);
+void cpg_update_d_4_3(cpg_float value);
+void cpg_update_n_4_3(cpg_int idx, cpg_float value);
+void cpg_update_d_4_4(cpg_float value);
+void cpg_update_n_4_4(cpg_int idx, cpg_float value);
+void cpg_update_d_4_5(cpg_float value);
+void cpg_update_n_4_5(cpg_int idx, cpg_float value);
+void cpg_update_d_5_0(cpg_float value);
+void cpg_update_n_5_0(cpg_int idx, cpg_float value);
+void cpg_update_d_5_1(cpg_float value);
+void cpg_update_n_5_1(cpg_int idx, cpg_float value);
+void cpg_update_d_5_2(cpg_float value);
+void cpg_update_n_5_2(cpg_int idx, cpg_float value);
+void cpg_update_d_5_3(cpg_float value);
+void cpg_update_n_5_3(cpg_int idx, cpg_float value);
+void cpg_update_d_5_4(cpg_float value);
+void cpg_update_n_5_4(cpg_int idx, cpg_float value);
+void cpg_update_d_5_5(cpg_float value);
+void cpg_update_n_5_5(cpg_int idx, cpg_float value);
+void cpg_update_d_6_0(cpg_float value);
+void cpg_update_n_6_0(cpg_int idx, cpg_float value);
+void cpg_update_d_6_1(cpg_float value);
+void cpg_update_n_6_1(cpg_int idx, cpg_float value);
+void cpg_update_d_6_2(cpg_float value);
+void cpg_update_n_6_2(cpg_int idx, cpg_float value);
+void cpg_update_d_6_3(cpg_float value);
+void cpg_update_n_6_3(cpg_int idx, cpg_float value);
+void cpg_update_d_6_4(cpg_float value);
+void cpg_update_n_6_4(cpg_int idx, cpg_float value);
+void cpg_update_d_6_5(cpg_float value);
+void cpg_update_n_6_5(cpg_int idx, cpg_float value);
+void cpg_update_d_7_0(cpg_float value);
+void cpg_update_n_7_0(cpg_int idx, cpg_float value);
+void cpg_update_d_7_1(cpg_float value);
+void cpg_update_n_7_1(cpg_int idx, cpg_float value);
+void cpg_update_d_7_2(cpg_float value);
+void cpg_update_n_7_2(cpg_int idx, cpg_float value);
+void cpg_update_d_7_3(cpg_float value);
+void cpg_update_n_7_3(cpg_int idx, cpg_float value);
+void cpg_update_d_7_4(cpg_float value);
+void cpg_update_n_7_4(cpg_int idx, cpg_float value);
+void cpg_update_d_7_5(cpg_float value);
+void cpg_update_n_7_5(cpg_int idx, cpg_float value);
+void cpg_update_d_8_0(cpg_float value);
+void cpg_update_n_8_0(cpg_int idx, cpg_float value);
+void cpg_update_d_8_1(cpg_float value);
+void cpg_update_n_8_1(cpg_int idx, cpg_float value);
+void cpg_update_d_8_2(cpg_float value);
+void cpg_update_n_8_2(cpg_int idx, cpg_float value);
+void cpg_update_d_8_3(cpg_float value);
+void cpg_update_n_8_3(cpg_int idx, cpg_float value);
+void cpg_update_d_8_4(cpg_float value);
+void cpg_update_n_8_4(cpg_int idx, cpg_float value);
+void cpg_update_d_8_5(cpg_float value);
+void cpg_update_n_8_5(cpg_int idx, cpg_float value);
+void cpg_update_d_9_0(cpg_float value);
+void cpg_update_n_9_0(cpg_int idx, cpg_float value);
+void cpg_update_d_9_1(cpg_float value);
+void cpg_update_n_9_1(cpg_int idx, cpg_float value);
+void cpg_update_d_9_2(cpg_float value);
+void cpg_update_n_9_2(cpg_int idx, cpg_float value);
+void cpg_update_d_9_3(cpg_float value);
+void cpg_update_n_9_3(cpg_int idx, cpg_float value);
+void cpg_update_d_9_4(cpg_float value);
+void cpg_update_n_9_4(cpg_int idx, cpg_float value);
+void cpg_update_d_9_5(cpg_float value);
+void cpg_update_n_9_5(cpg_int idx, cpg_float value);
+void cpg_update_d_10_0(cpg_float value);
+void cpg_update_n_10_0(cpg_int idx, cpg_float value);
+void cpg_update_d_10_1(cpg_float value);
+void cpg_update_n_10_1(cpg_int idx, cpg_float value);
+void cpg_update_d_10_2(cpg_float value);
+void cpg_update_n_10_2(cpg_int idx, cpg_float value);
+void cpg_update_d_10_3(cpg_float value);
+void cpg_update_n_10_3(cpg_int idx, cpg_float value);
+void cpg_update_d_10_4(cpg_float value);
+void cpg_update_n_10_4(cpg_int idx, cpg_float value);
+void cpg_update_d_10_5(cpg_float value);
+void cpg_update_n_10_5(cpg_int idx, cpg_float value);
+
+// Solve via canonicalization, canonical solve, retrieval
+void cpg_solve();
+
+// Update solver settings
+void cpg_set_solver_default_settings();
+void cpg_set_solver_&lt;setting_name&gt;(&lt;setting_type&gt; &lt;setting_name&gt;_new);
+...</code></pre>
+        <p>Here <code>&lt;setting_name&gt;</code> and <code>&lt;setting_type&gt;</code> are placeholders for
+           the name and type of the solver setting to be updated, respectively. Available settings: <code>max_iter</code>, <code>eps_abs</code>, <code>eps_rel</code>, <code>eps_prim_inf</code>, <code>eps_dual_inf</code>, <code>scaled_termination</code>, <code>check_termination</code>, <code>warm_starting</code>.</p>
+      </div>
+
+      <!-- cpg_workspace.c -->
+      <div class="file-panel" id="f-workspace-c">
+        <div class="file-path-badge">c/src/cpg_workspace.c</div>
+        <p>Contains the static allocation of all C variables declared in
+           <code>c/include/cpg_workspace.h</code>.</p>
+      </div>
+
+      <!-- cpg_solve.c -->
+      <div class="file-panel" id="f-solve-c">
+        <div class="file-path-badge">c/src/cpg_solve.c</div>
+        <p>Contains the definitions of all functions declared in
+           <code>c/include/cpg_solve.h</code>.</p>
+      </div>
+
+
+
+
+
+      <!-- cpg_example.c -->
+      <div class="file-panel" id="f-example-c">
+        <div class="file-path-badge">c/src/cpg_example.c</div>
+        <p>Contains example C code that initializes the problem data and solves a problem instance.
+           See <em>Using Generated Code</em> below for compilation instructions.</p>
+      </div>
+
+      <!-- CMakeLists.txt -->
+      <div class="file-panel" id="f-cmake">
+        <div class="file-path-badge">c/CMakeLists.txt</div>
+        <p>Contains instructions for build file generation inside the <code>c/build/</code> directory
+           using CMake. The <code>cpg_example</code> executable and the <code>cpg</code> static library
+           (used by the Python wrapper) are configured here.</p>
+      </div>
+
+      <!-- solver_code/ -->
+      <div class="file-panel" id="f-solver-code">
+        <div class="file-path-badge">c/solver_code/</div>
+        <p>Contains all source files from the chosen numerical solver (OSQP).
+           Also see the 
+           <a href="https://osqp.org/docs/codegen/python.html" target="_blank">OSQP documentation</a>.</p>
+      </div>
+
+      <!-- cpg_module.hpp -->
+      <div class="file-panel" id="f-module-hpp">
+        <div class="file-path-badge">cpp/include/cpg_module.hpp</div>
+        <p>Declares the <a href="https://github.com/pybind/pybind11" target="_blank">pybind11</a>
+           interface that exposes the generated C solver to Python. Defines the module entry point
+           and the signatures of all bound functions.</p>
+      </div>
+
+      <!-- cpg_module.cpp -->
+      <div class="file-panel" id="f-module-cpp">
+        <div class="file-path-badge">cpp/src/cpg_module.cpp</div>
+        <p>Implements the pybind11 bindings declared in <code>cpg_module.hpp</code>.
+           Compiled together with the <code>cpg</code> static library via CMake
+           (<code>pybind11_add_module</code>) into a Python extension module.</p>
+      </div>
+
+      <!-- root CMakeLists.txt -->
+      <div class="file-panel" id="f-root-cmake">
+        <div class="file-path-badge">CMakeLists.txt</div>
+        <p>Root CMake entry point for the generated solver package. Orchestrates the build by
+           adding the <code>c/</code> subdirectory (C solver and static library) and then
+           directly building the <a href="https://github.com/pybind/pybind11" target="_blank">pybind11</a>
+           Python extension module from <code>cpp/src/cpg_module.cpp</code>.
+           Invoked by <code>pyproject.toml</code> via scikit-build-core.</p>
+      </div>
+
+      <!-- pyproject.toml -->
+      <div class="file-panel" id="f-setup">
+        <div class="file-path-badge">pyproject.toml</div>
+        <p>Build configuration for
+           <a href="https://scikit-build-core.readthedocs.io" target="_blank">scikit-build-core</a>.
+           Drives CMake to compile the pybind11 extension module.
+           Invoked automatically by CVXPYgen; can also be run manually via
+           <code>pip install --no-build-isolation --no-deps .</code>.</p>
+      </div>
+
+      <!-- cpg_solver.py -->
+      <div class="file-panel" id="f-solver-py">
+        <div class="file-path-badge">cpg_solver.py</div>
+        <p>A custom CVXPY solve method that routes <code>prob.solve(method='CPG')</code> through
+           the Python extension module to the generated C solver.</p>
+      </div>
+    </section>
+
+    <!-- Using Generated Code -->
+    <section>
+      <h2>Using Generated Code</h2>
+
+      <div class="usage-block">
+        <h3>CVXPY Interface</h3>
+        <p>Register and call the custom solve method:</p>
+        <pre><code>from generated_solver.cpg_solver import cpg_solve
+prob.register_solve('CPG', cpg_solve)
+
+&lt;param&gt;.value = ...
+prob.solve(method='CPG')
+print(&lt;var&gt;.value)</code></pre>
+        <p>Here, <code>&lt;param&gt;</code> and <code>&lt;var&gt;</code>
+           are placeholders for parameter and variable names, respectively.</p>
+      </div>
+
+      <div class="usage-block">
+        <h3>Example Executable</h3>
+        <p>Build and execute <code>cpg_example</code> as:</p>
+        <div class="tab-group">
+          <div class="tab-bar">
+            <button class="tab-btn active" onclick="switchTab(event,'tab-unix')">Unix</button>
+            <button class="tab-btn"        onclick="switchTab(event,'tab-win')">Windows</button>
+          </div>
+          <div class="tab-body">
+            <div class="tab-panel active" id="tab-unix">
+              <pre><code>cd generated_solver/c/build
+cmake ..
+cmake --build . --target cpg_example
+./cpg_example</code></pre>
+            </div>
+            <div class="tab-panel" id="tab-win">
+              <pre><code>cd generated_solver\c\build
+cmake ..
+cmake --build . --target cpg_example --config release
+Release\cpg_example</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="usage-block">
+        <h3>Embed in C/C++ project</h3>
+        <p>Copy the following into a subdirectory <code>&lt;subdir&gt;</code> of your project:</p>
+        <pre><code>generated_solver/c/CMakeLists.txt
+generated_solver/c/src/*
+generated_solver/c/include/*
+generated_solver/c/solver_code/*</code></pre>
+        <p>In your project's top-level <code>CMakeLists.txt</code>, add:</p>
+        <pre><code>add_subdirectory(&lt;subdir&gt;)
+include_directories(... ${cpg_include})</code></pre>
+        <p>where <code>...</code> is a placeholder for your existing include directories and
+           the list of include directories of the generated code <code>${cpg_include}</code>
+           is exposed by <code>generated_solver/c/CMakeLists.txt</code>.
+           Add <code>${cpg_head}</code> and
+           <code>${cpg_src}</code> to any targets that use the generated code.
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  // ── File tree interaction ──
+  const fileItems = document.querySelectorAll('.tree-file');
+  const allPanels = document.querySelectorAll('.file-panel');
+  const defaultPanel = document.getElementById('f-default');
+
+  fileItems.forEach(function(item) {
+    item.addEventListener('click', function() {
+      fileItems.forEach(function(x) { x.classList.remove('active'); });
+      allPanels.forEach(function(x) { x.classList.remove('active'); });
+      this.classList.add('active');
+      var panel = document.getElementById(this.dataset.panel);
+      if (panel) { panel.classList.add('active'); }
+      document.getElementById('file-contents-section').scrollIntoView({behavior: 'smooth', block: 'start'});
+    });
+  });
+
+  // ── Tab switching ──
+  function switchTab(evt, panelId) {
+    var btn = evt.currentTarget;
+    var tabBar  = btn.closest('.tab-bar');
+    var tabBody = tabBar.nextElementSibling;
+    tabBar.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    tabBody.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+    btn.classList.add('active');
+    var target = document.getElementById(panelId);
+    if (target) { target.classList.add('active'); }
+  }
+</script>
+
+</body>
+</html>
