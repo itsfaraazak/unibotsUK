@@ -163,6 +163,18 @@ def generate_launch_description():
     # ---- controller_manager spawners ----
     # The controller_manager runs inside Gazebo (gz_ros2_control plugin). These
     # spawners simply load + activate the controllers once it is available.
+    #
+    # IMPORTANT: the spawner writes whatever is in a Node's `parameters` list
+    # out to a temp YAML file and passes that to the controller as
+    # --params-file. If robot_controllers.yaml isn't included here, the
+    # controller-specific params (e.g. mecanum_drive_controller's
+    # *_wheel_command_joint_name) never reach the controller and it fails to
+    # initialize with "... cannot be empty".
+    #
+    controller_params_path = PathJoinSubstitution(
+        [desc_share, "config", "robot_controllers.yaml"]
+    )
+
     joint_state_broadcaster_spawner = Node(
         package="controller_manager",
         executable="spawner",
@@ -172,7 +184,7 @@ def generate_launch_description():
             "joint_state_broadcaster",
             "--controller-manager", "/controller_manager",
         ],
-        parameters=[{"use_sim_time": use_sim_time}],
+        parameters=[controller_params_path, {"use_sim_time": use_sim_time}],
     )
 
     # The mecanum_drive_controller subscribes to TwistStamped on its own
@@ -201,7 +213,7 @@ def generate_launch_description():
             "-r /mecanum_drive_controller/odometry:=/odom "
             "-r /mecanum_drive_controller/tf_odometry:=/tf",
         ],
-        parameters=[{"use_sim_time": use_sim_time}],
+        parameters=[controller_params_path, {"use_sim_time": use_sim_time}],
     )
 
     # ---- ros_gz_bridge ----

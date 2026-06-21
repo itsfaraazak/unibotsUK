@@ -391,7 +391,7 @@ class MpcControllerNode(Node):
         # If the compiled solver is unavailable, fail safe.
         if not self._solver_available:
             self._publish_zero()
-            self.get_logger().warn(
+            self.get_logger().warning(
                 "iMPC solver unavailable -> publishing zero. "
                 "Run scripts/build_mpc_solver.py.",
                 throttle_duration_sec=LOG_THROTTLE_S,
@@ -466,7 +466,7 @@ class MpcControllerNode(Node):
         status = self._problem.status
 
         # Step 8: extract and publish, or fail safe on infeasibility.
-        if status in ("optimal", "optimal_inaccurate"):
+        if status in ("optimal", "optimal_inaccurate", "solved", "solved inaccurate"):
             u_sol = self._problem.var_dict["u"].value
             x_sol = self._problem.var_dict["x"].value
             
@@ -480,6 +480,8 @@ class MpcControllerNode(Node):
             # Step 9: store solution for next warm-start and relinearization.
             self._prev_u = np.asarray(u_sol, dtype=float)
             self._prev_x = np.asarray(x_sol, dtype=float)
+        else: 
+            self.get_logger().warning(f"Solver failed: {status}")
 
     def _publish_cmd(self, u0: np.ndarray) -> None:
         """Publish the first control as a TwistStamped.

@@ -25,6 +25,17 @@ apt-get install -y \
   python3-pip \
   python3-argcomplete
 
+pip3 install --break-system-packages \
+  ultralytics \
+  supervision \
+  opencv-python \
+  adafruit-circuitpython-bno055 \
+  numpy \
+  scipy \
+  cvxpy \
+  cvxpygen \
+  osqp
+
 # --- Nav2 full stack ---
 apt-get install -y \
   ros-lyrical-nav2-bringup \
