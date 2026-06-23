@@ -1,0 +1,8 @@
+Metadata-Version: 2.2
+Name: cpg_module
+Version: 0.0.1
+Requires-Python: >=3.11
+Requires-Dist: cvxpy>=1.8
+Requires-Dist: numpy
+Requires-Dist: scipy
+

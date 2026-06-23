@@ -191,6 +191,10 @@ class MpcControllerNode(Node):
         self.declare_parameter("goal_tolerance", 0.05)
         self.declare_parameter("control_frequency", 20.0)
         self.declare_parameter("obstacle_safety_radius", 0.25)
+        self._goal_latched = False
+        self._last_target_time = None
+        self.declare_parameter("yaw_kp", 1.5)
+        self._yaw_kp = self.get_parameter("yaw_kp").value
 
         self._dt: float = self.get_parameter("dt").value
         self._n: int = int(self.get_parameter("horizon_n").value)
@@ -284,6 +288,10 @@ class MpcControllerNode(Node):
         p = msg.pose.position
         theta = yaw_from_quaternion(msg.pose.orientation)
         self._goal = np.array([p.x, p.y, theta], dtype=float)
+        # Record the exact ROS time we received this frame
+        self._last_target_time = self.get_clock().now()
+        # Reset the latch whenever we receive a brand new goal!
+        self._goal_latched = False
 
     def _obstacles_cb(self, msg: Detection2DArray) -> None:
         """Store detected obstacles from a vision_msgs/Detection2DArray.
@@ -312,25 +320,32 @@ class MpcControllerNode(Node):
         self._cmd_pub.publish(msg)
 
     def _build_reference(self) -> np.ndarray:
-        """Build a straight-line reference trajectory current -> goal.
-
-        Interpolates px, py linearly and theta along the shortest angular path
-        over N+1 horizon points.
-
-        Returns:
-            (3, N+1) reference state trajectory.
-        """
+        """Build a straight-line reference trajectory current -> goal."""
         assert self._current_pose is not None and self._goal is not None
         ref = np.zeros((N_STATES, self._n + 1), dtype=float)
         start = self._current_pose
         goal = self._goal
+
+        # --- NEW LOGIC: Face the ball, but freeze heading when close ---
+        dy = goal[1] - start[1]
+        dx = goal[0] - start[0]
+        dist_to_goal = math.hypot(dx, dy)
+
+        # Continuously look at the ball ONLY if we are far enough away (> 15 cm).
+        # Once closer than 15 cm, we skip this update, locking in the last 
+        # perfect approach angle so the robot drives straight in without jitter.
+        if dist_to_goal > 0.15:
+            self._goal[2] = math.atan2(dy, dx)
+        # ----------------------------------------------------------------
+
         # Shortest angular path for heading.
-        dtheta = wrap_angle(goal[2] - start[2])
+        dtheta = wrap_angle(self._goal[2] - start[2])
         for k in range(self._n + 1):
             alpha = k / float(self._n)
             ref[0, k] = start[0] + alpha * (goal[0] - start[0])
             ref[1, k] = start[1] + alpha * (goal[1] - start[1])
             ref[2, k] = wrap_angle(start[2] + alpha * dtheta)
+        
         return ref
 
     def _build_obstacle_halfplanes(self):
@@ -383,6 +398,22 @@ class MpcControllerNode(Node):
         """
         self._problem.param_dict[name].value = value
 
+    def _compute_yaw_override(self) -> float:
+        """Decoupled P-controller for heading to face the goal."""
+        dy = self._goal[1] - self._current_pose[1]
+        dx = self._goal[0] - self._current_pose[0]
+        dist = math.hypot(dx, dy)
+
+        # 15cm deadband: stop spinning when very close to avoid jitter
+        if dist < 0.15:
+            return 0.0
+
+        desired_yaw = math.atan2(dy, dx)
+        yaw_err = wrap_angle(desired_yaw - self._current_pose[2])
+        
+        # Use the ROS parameter!
+        return self._yaw_kp * yaw_err
+
     # ------------------------------------------------------------------------
     # Control loop
     # ------------------------------------------------------------------------
@@ -403,14 +434,40 @@ class MpcControllerNode(Node):
             self._publish_zero()
             return
 
+        # Step 1.5: Stale Target Timeout Logic
+        # (We only reach here if self._goal and self._last_target_time are NOT None)
+        time_since_target = (self.get_clock().now() - self._last_target_time).nanoseconds / 1e9
+        dist_to_last_goal = float(np.linalg.norm(self._goal[0:2] - self._current_pose[0:2]))
+
+        # If we haven't seen the ball in 0.5 seconds...
+        if time_since_target > 0.5:
+            if dist_to_last_goal > 0.25:
+                # Scenario A: We lost it far away. It rolled off screen.
+                self.get_logger().warning("Lost sight of ball far away! Aborting.", throttle_duration_sec=2.0)
+                self._publish_zero()
+                self._goal = None  # Clear the goal so we don't keep driving
+                return
+            else:
+                # Scenario B: We lost it close! It is in the blind spot under the camera.
+                # DO NOTHING. Let the MPC use the last known self._goal to finish the scoop!
+                pass
+
         # Step 2: distance to goal; if within tolerance, stop and log arrival.
         dist_to_goal = float(
             np.linalg.norm(self._goal[0:2] - self._current_pose[0:2])
         )
+        
+        # --- HYSTERESIS / GOAL LATCHING ---
+        # Latch when we hit the goal (5cm). Only unlatch if we drift wildly (10cm).
         if dist_to_goal < self._goal_tolerance:
+            self._goal_latched = True
+        elif dist_to_goal > (self._goal_tolerance * 2.0):
+            self._goal_latched = False
+
+        if self._goal_latched:
             self._publish_zero()
             self.get_logger().info(
-                "Goal reached (within tolerance) -> holding.",
+                "Goal reached (Latched) -> holding.",
                 throttle_duration_sec=LOG_THROTTLE_S,
             )
             return
@@ -475,13 +532,12 @@ class MpcControllerNode(Node):
                 return
             
             u0 = u_sol[:, 0]
-            self._publish_cmd(u0)
-            
-            # Step 9: store solution for next warm-start and relinearization.
-            self._prev_u = np.asarray(u_sol, dtype=float)
-            self._prev_x = np.asarray(x_sol, dtype=float)
-        else: 
-            self.get_logger().warning(f"Solver failed: {status}")
+
+            # --- THE DECOUPLED OVERRIDE ---
+            omega_override = self._compute_yaw_override()
+            mixed_u0 = np.array([u0[0], u0[1], omega_override])
+            self._publish_cmd(mixed_u0)
+            # ------------------------------
 
     def _publish_cmd(self, u0: np.ndarray) -> None:
         """Publish the first control as a TwistStamped.
