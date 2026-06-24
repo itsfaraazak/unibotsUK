@@ -2,14 +2,19 @@
   inputs = {
     nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/master";
     nixpkgs.follows = "nix-ros-overlay/nixpkgs";  # IMPORTANT!!!
+    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixpkgs-unstable";
   };
-  outputs = { self, nix-ros-overlay, nixpkgs }:
+  outputs = { self, nix-ros-overlay, nixpkgs, nixpkgs-unstable }:
     nix-ros-overlay.inputs.flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs {
           inherit system;
           overlays = [ nix-ros-overlay.overlays.default ];
         };
+	pkgsUnstable = import nixpkgs-unstable {
+	  inherit system;
+	  config.allowUnfree = true;
+	};
       in {
         devShells.default = pkgs.mkShell {
           name = "UnibotsUK Fresher Force Software";
@@ -21,8 +26,11 @@
 	    pkg-config
 	    # Libraries
 	    ncnn
-	    (opencv.override { enableGtk3 = true; })
-	    #opencv
+	    opencv
+
+	    pkgsUnstable.nono
+	    pkgsUnstable.claude-code
+	    nodejs
 	    # ... other non-ROS packages
 
             (with pkgs.rosPackages.lyrical; buildEnv {
