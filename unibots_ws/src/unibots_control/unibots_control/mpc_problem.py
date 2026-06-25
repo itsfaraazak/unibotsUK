@@ -44,24 +44,18 @@ DT: float = 0.05                     # discretisation timestep [s] -> 20 Hz
 MAX_OBSTACLES: int = 6
 
 # Velocity bounds (body frame). Conservative for foam-tile slip on the arena.
-MAX_VX: float = 0.35                 # body lateral velocity [m/s]
-MAX_VY: float = 0.45                 # body forward velocity [m/s]
-MAX_OMEGA: float = 1.2               # yaw rate [rad/s]
-
-# Arena wall bounds with body-radius buffer. Arena is 2.0 m x 2.0 m;
-# 0.15 m buffer keeps the robot centre clear of the walls.
-ARENA_MIN: float = 0.15              # min admissible px/py [m]
-ARENA_MAX: float = 1.85              # max admissible px/py [m]
+MAX_VX: float = 2.0                # body lateral velocity [m/s]
+MAX_VY: float = 2.0                 # body forward velocity [m/s]
+MAX_OMEGA: float = 3.0               # yaw rate [rad/s]
 
 # Cost weights.
 Q_DIAG = (10.0, 10.0, 0.5)           # state tracking (px, py, theta)
 R_DIAG = (0.5, 0.5, 0.3)             # control effort (vx, vy, omega)
-RD_DIAG = (2.0, 2.0, 1.0)            # control rate / smoothness (dvx, dvy, domega)
+RD_DIAG = (1.5, 1.5, 0.8)            # control rate / smoothness (dvx, dvy, domega)
 
 # Soft-constraint slack penalties. Large relative to the tracking cost so the
-# arena-wall / obstacle constraints behave as effectively hard whenever a
+# obstacle constraints behave as effectively hard whenever a
 # feasible interior solution exists, while never making the QP infeasible.
-WALL_SLACK_PENALTY: float = 1.0e4    # per-metre penalty on wall-bound violation
 OBS_SLACK_PENALTY: float = 1.0e4     # per-metre penalty on obstacle violation
 
 # Inactive-obstacle sentinel half-plane: n=[1,0], d=-999 so the constraint
@@ -123,7 +117,6 @@ def build_problem() -> cp.Problem:
     # at a wall. With HARD bounds those cases make the problem infeasible and the
     # controller outputs nothing. The large penalty keeps slack ~0 whenever an
     # interior solution exists, so normal behaviour matches hard constraints.
-    s_wall = cp.Variable((4, HORIZON_N + 1), name="s_wall", nonneg=True)  # xmin,xmax,ymin,ymax
     s_obs = cp.Variable((MAX_OBSTACLES, HORIZON_N + 1), name="s_obs", nonneg=True)
 
     # --- Constraints ----------------------------------------------------------
@@ -138,13 +131,6 @@ def build_problem() -> cp.Problem:
         ]
 
     for k in range(HORIZON_N + 1):
-        # Soft arena walls (slack-relaxed box).
-        constraints += [
-            x[0, k] >= ARENA_MIN - s_wall[0, k],
-            x[0, k] <= ARENA_MAX + s_wall[1, k],
-            x[1, k] >= ARENA_MIN - s_wall[2, k],
-            x[1, k] <= ARENA_MAX + s_wall[3, k],
-        ]
         # Soft obstacle half-planes.
         for i in range(MAX_OBSTACLES):
             constraints += [
@@ -166,7 +152,6 @@ def build_problem() -> cp.Problem:
     cost += cp.quad_form(x[:, HORIZON_N], Q) - 2 * x_ref[:, HORIZON_N] @ Q @ x[:, HORIZON_N]
 
     # Soft-constraint slack penalties (L1).
-    cost += WALL_SLACK_PENALTY * cp.sum(s_wall)
     cost += OBS_SLACK_PENALTY * cp.sum(s_obs)
 
     return cp.Problem(cp.Minimize(cost), constraints)

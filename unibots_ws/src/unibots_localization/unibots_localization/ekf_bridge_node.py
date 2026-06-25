@@ -48,10 +48,25 @@ automatically trusts close detections more than distant ones.
 MULTIPLE TAGS
 =============
 When several tags are visible we *average* the resulting robot pose estimates,
-inverse-variance weighted by their per-detection covariance. Averaging across
-independent tags reduces noise and is robust to a single bad/occluded tag (an
-opponent robot may block one tag, but rarely all of them simultaneously). The
-closest tag dominates the weighted mean, which is the behaviour we want.
+inverse-variance weighted by their per-detection covariance -- this happens for
+EVERY detected tag, not just the closest one (see ``_fuse_estimates`` below;
+every entry in the ``estimates`` list it is given contributes to the weighted
+mean). Averaging across independent tags reduces noise and is robust to a
+single bad/occluded tag (an opponent robot may block one tag, but rarely all of
+them simultaneously). The closest tag *dominates* the weighted mean because its
+variance is smallest -- it is not the only one used.
+
+DEBUG VISUALIZATION
+====================
+Every callback also republishes a ``MarkerArray`` on
+``/localization/debug_markers``: one small fixed-id sphere per surveyed arena
+tag, coloured green when that tag contributed to the current fused estimate
+and dim grey otherwise. Because the 24 marker ids never change, RViz just
+updates colours in place -- there's no marker churn and no clutter. Add a
+MarkerArray display on that topic to see at a glance which tags the robot is
+currently using to localize. The terminal log (INFO, only on a *change* to the
+visible-tag set) reports the same information as plain text, including the
+range to each tag, for headless debugging without RViz.
 """
 
 from __future__ import annotations
@@ -61,8 +76,10 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 import rclpy
-from geometry_msgs.msg import PoseWithCovarianceStamped
+from geometry_msgs.msg import Point, PoseWithCovarianceStamped
 from rclpy.node import Node
+from std_msgs.msg import ColorRGBA
+from visualization_msgs.msg import Marker, MarkerArray
 from rclpy.qos import (
     DurabilityPolicy,
     HistoryPolicy,
@@ -194,10 +211,10 @@ DEFAULT_CAMERA_OPTICAL_FRAME = "camera_optical_frame"
 DEFAULT_TAG_FRAME_PREFIX = "tag36h11:"  # apriltag_node default child frame name
 
 # Covariance model: var(r) = base_cov + cov_dist_k * r**2  [m^2].
-DEFAULT_BASE_LINEAR_COV = 0.0025   # 5 cm 1-sigma at zero range
-DEFAULT_COV_DIST_K = 0.01          # grows with range^2
-DEFAULT_YAW_BASE_COV = 0.0030      # rad^2, ~3.1 deg 1-sigma at zero range
-DEFAULT_YAW_DIST_K = 0.0050        # rad^2 per m^2
+DEFAULT_BASE_LINEAR_COV = 0.0100   # 10 cm 1-sigma at zero range
+DEFAULT_COV_DIST_K = 0.0400        # grows with range^2
+DEFAULT_YAW_BASE_COV = 0.0120      # rad^2, ~6.3 deg 1-sigma at zero range
+DEFAULT_YAW_DIST_K = 0.0200        # rad^2 per m^2
 
 # Robust limits.
 DEFAULT_MAX_RANGE_M = 3.5          # ignore implausibly distant detections
@@ -206,6 +223,13 @@ DEFAULT_TF_TIMEOUT_S = 0.05        # how long to wait for a TF when looking up
 # Large value placed on the unused Z / roll / pitch covariance diagonal entries
 # so the EKF effectively ignores them (we are a 2-D filter).
 UNUSED_COV = 1.0e6
+
+# Debug-marker appearance. Kept deliberately minimal: a sphere per tag, no
+# text, no rays -- 24 fixed marker ids that just change colour, so RViz never
+# accumulates clutter regardless of how long the node runs.
+MARKER_VISIBLE_RGBA = (0.1, 1.0, 0.2, 0.9)   # green-ish, mostly opaque
+MARKER_HIDDEN_RGBA = (0.5, 0.5, 0.5, 0.25)   # dim grey, mostly transparent
+MARKER_SCALE_M = 0.06
 
 
 @dataclass
@@ -343,6 +367,17 @@ class EkfBridgeNode(Node):
         self._pose_pub = self.create_publisher(
             PoseWithCovarianceStamped, self._output_topic, pose_qos
         )
+        # MarkerArray for RViz: one fixed-id sphere per arena tag, green when
+        # it contributed to the current fused estimate, dim grey otherwise.
+        # See the module docstring "DEBUG VISUALIZATION" section. Add a
+        # MarkerArray display in RViz on /localization/debug_markers to use it.
+        self._marker_pub = self.create_publisher(
+            MarkerArray, '/localization/debug_markers', 10
+        )
+
+        # Track which tag IDs were detected last callback so we only log at
+        # INFO when the visible set changes (avoids spamming at 30 Hz).
+        self._prev_detected_ids: frozenset = frozenset()
 
         if _HAVE_APRILTAG_MSGS:
             self._det_sub = self.create_subscription(
@@ -397,6 +432,11 @@ class EkfBridgeNode(Node):
     def _on_detections(self, msg) -> None:  # noqa: ANN001 (msg type optional)
         """Handle an incoming detection array and publish a fused robot pose.
 
+        Every detection that resolves to a valid TF lookup contributes one
+        entry to ``estimates``; ALL of them are passed into
+        ``_fuse_estimates`` together -- the fused pose is a weighted average
+        over every currently-visible tag, never just the single closest one.
+
         Args:
             msg: ``apriltag_msgs/AprilTagDetectionArray`` with the ids of the
                 tags currently visible. The metric pose of each is fetched via
@@ -406,6 +446,7 @@ class EkfBridgeNode(Node):
             return
 
         estimates: List[RobotEstimate] = []
+        detected_ids: List[int] = []          # ids whose TF lookup succeeded
         for det in msg.detections:
             tag_id = int(det.id)
             tag = TAG_WORLD_POSITIONS.get(tag_id)
@@ -417,12 +458,45 @@ class EkfBridgeNode(Node):
             est = self._estimate_from_tag(tag, msg.header.stamp)
             if est is not None:
                 estimates.append(est)
+                detected_ids.append(tag_id)
 
         if not estimates:
             return
 
         fused = self._fuse_estimates(estimates)
         self._publish_pose(fused, msg.header.stamp)
+        self._publish_debug_markers(detected_ids, msg.header.stamp)
+
+        # Log at INFO only when the set of visible tags changes; use DEBUG
+        # otherwise to avoid flooding the terminal at the detection rate.
+        # range_by_id lets the log show *where* each tag is (its range) in
+        # addition to *which* tags are visible, without needing RViz open.
+        cur_ids = frozenset(detected_ids)
+        if cur_ids != self._prev_detected_ids:
+            range_by_id = {tid: est.range_m for tid, est in zip(detected_ids, estimates)}
+            gained = cur_ids - self._prev_detected_ids
+            lost   = self._prev_detected_ids - cur_ids
+            parts  = []
+            if gained:
+                parts.append(f'+[{",".join(str(i) for i in sorted(gained))}]')
+            if lost:
+                parts.append(f'-[{",".join(str(i) for i in sorted(lost))}]')
+            ranges_str = ", ".join(
+                f"{tid}:{range_by_id[tid]:.2f}m" for tid in sorted(cur_ids)
+            )
+            self.get_logger().info(
+                f'Tags detected: [{ranges_str}] ({len(detected_ids)})  '
+                f'{"  ".join(parts)}  →  '
+                f'pose ({fused.x:.3f}, {fused.y:.3f}, '
+                f'{math.degrees(fused.yaw):.1f}°)  '
+                f'lin_σ={math.sqrt(fused.lin_var)*100:.1f} cm'
+            )
+            self._prev_detected_ids = cur_ids
+        else:
+            self.get_logger().debug(
+                f'Tags: {sorted(detected_ids)} → '
+                f'({fused.x:.3f}, {fused.y:.3f}, {math.degrees(fused.yaw):.1f}°)'
+            )
 
     # ------------------------------------------------------------------ #
     # Per-tag geometry
@@ -533,13 +607,17 @@ class EkfBridgeNode(Node):
     # ------------------------------------------------------------------ #
     @staticmethod
     def _fuse_estimates(estimates: List[RobotEstimate]) -> RobotEstimate:
-        """Inverse-variance-weighted average of several robot-pose estimates.
+        """Inverse-variance-weighted average of EVERY supplied estimate.
 
-        Closer tags have smaller variance and therefore dominate the mean. Yaw
-        is averaged on the unit circle to handle wraparound. The fused variance
-        is the standard ``1 / sum(1/var_i)`` of independent measurements, so
-        seeing more tags legitimately *increases* confidence (redundancy
-        benefit -- see module docstring).
+        This is a true multi-tag average, not a "pick the best tag" shortcut:
+        every element of ``estimates`` (one per currently-visible tag) is
+        folded into ``x_acc`` / ``y_acc`` / ``sin_acc`` / ``cos_acc`` below.
+        Closer tags have smaller variance and therefore dominate the mean --
+        but they do not exclude the others. Yaw is averaged on the unit circle
+        to handle wraparound. The fused variance is the standard
+        ``1 / sum(1/var_i)`` of independent measurements, so seeing more tags
+        legitimately *increases* confidence (redundancy benefit -- see module
+        docstring).
 
         Args:
             estimates: Non-empty list of per-tag estimates.
@@ -550,7 +628,7 @@ class EkfBridgeNode(Node):
         if len(estimates) == 1:
             return estimates[0]
 
-        # Linear (x, y) inverse-variance weighting.
+        # Linear (x, y) inverse-variance weighting over ALL estimates.
         wsum = 0.0
         x_acc = 0.0
         y_acc = 0.0
@@ -563,7 +641,7 @@ class EkfBridgeNode(Node):
         fused_y = y_acc / wsum
         fused_lin_var = 1.0 / wsum
 
-        # Yaw inverse-variance weighting on the unit circle.
+        # Yaw inverse-variance weighting on the unit circle, over ALL estimates.
         ysum = 0.0
         sin_acc = 0.0
         cos_acc = 0.0
@@ -619,6 +697,46 @@ class EkfBridgeNode(Node):
         msg.pose.covariance = cov
 
         self._pose_pub.publish(msg)
+
+    def _publish_debug_markers(self, detected_ids: List[int], stamp) -> None:
+        """Publish a minimal RViz MarkerArray showing current tag visibility.
+
+        Deliberately minimal, by design: one small sphere per surveyed arena
+        tag (24 total -- a fixed, static set of marker ids), coloured green
+        when that tag contributed to the fused estimate this callback and dim
+        grey otherwise. No text labels, no rays back to the robot -- those add
+        visual noise without adding information beyond what the log line
+        already prints. Because the marker ids never change, RViz simply
+        overwrites each sphere's colour in place every callback; there is no
+        DELETE/ADD churn and the marker count never grows, however long the
+        node runs.
+
+        Args:
+            detected_ids: IDs of tags that contributed a valid estimate to the
+                current fused pose (i.e. ``cur_ids`` from ``_on_detections``).
+            stamp: Detection timestamp to copy onto every marker.
+        """
+        detected = frozenset(detected_ids)
+        array = MarkerArray()
+        for tag_id, tag in TAG_WORLD_POSITIONS.items():
+            marker = Marker()
+            marker.header.frame_id = self._map_frame
+            marker.header.stamp = stamp
+            marker.ns = "arena_tags"
+            marker.id = tag_id
+            marker.type = Marker.SPHERE
+            marker.action = Marker.ADD
+            marker.pose.position = Point(x=tag.x, y=tag.y, z=TAG_HEIGHT_M)
+            marker.pose.orientation.w = 1.0
+            marker.scale.x = marker.scale.y = marker.scale.z = MARKER_SCALE_M
+
+            r, g, b, a = (
+                MARKER_VISIBLE_RGBA if tag_id in detected else MARKER_HIDDEN_RGBA
+            )
+            marker.color = ColorRGBA(r=r, g=g, b=b, a=a)
+            array.markers.append(marker)
+
+        self._marker_pub.publish(array)
 
 
 def main(args: Optional[List[str]] = None) -> None:

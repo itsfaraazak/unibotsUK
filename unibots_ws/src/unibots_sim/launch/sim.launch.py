@@ -50,9 +50,10 @@ from launch_ros.substitutions import FindPackageShare
 # at z=0 would bury the wheels under the floor and rest the chassis belly on the
 # ground (no traction). Spawn at z = wheel_radius (0.03 m) so the wheel contact
 # patches sit exactly on the floor and the chassis is clear of it.
-ROBOT_START_X = "0.1"
-ROBOT_START_Y = "0.1"
+ROBOT_START_X = "1.0"
+ROBOT_START_Y = "0.14"
 ROBOT_START_Z = "0.03"   # == wheel_radius in robot.xacro
+ROBOT_START_YAW = "1.5708"  # optional yaw rotation (radians)
 
 # ---- Spawned model name in Gazebo. ----
 ROBOT_MODEL_NAME = "unibots_robot"
@@ -156,7 +157,7 @@ def generate_launch_description():
             "-x", ROBOT_START_X,
             "-y", ROBOT_START_Y,
             "-z", ROBOT_START_Z,
-            "-Y", "0.0",
+            "-Y", ROBOT_START_YAW,  # optional yaw rotation (radians)
         ],
     )
 
@@ -251,6 +252,8 @@ def generate_launch_description():
             # (remapped to /odom above).
             # imu  gz -> ros
             "/imu@sensor_msgs/msg/Imu[gz.msgs.IMU",
+            # Perfect Ground Truth Pose for the Mock Tag Bridge ---
+            "/unibots_robot/pose@geometry_msgs/msg/Pose[gz.msgs.Pose",
         ],
         remappings=[
             ("/camera", "/camera/image_raw"),
