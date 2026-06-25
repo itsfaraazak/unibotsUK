@@ -1,0 +1,30 @@
+/**:
+  ros__parameters:
+    # -- Topics --
+    pose_topic: "/localization/robot_pose"
+    target_topic: "/game/target"
+    ball_vision_topic: "/vision/detected_balls"
+    tof_sensor_topic: "/sensors/tof_distance"
+    servo_scoop_topic: "/servos/scoop_cmd"
+    servo_deposit_topic: "/servos/deposit_cmd"
+
+    # -- Strategy Thresholds --
+    endgame_time_s: 150.0
+    max_ball_capacity: 6
+    tof_capture_threshold_m: 0.05   # Distance in meters to trigger scoop
+    goal_tolerance_m: 0.15          # Distance to consider a waypoint reached
+
+    # -- Home / Deposit Location --
+    home_x: 0.0
+    home_y: 1.0
+    home_yaw: 3.14159
+
+    # -- Exploration Waypoints [x, y, yaw] --
+    # Waypoints are used to avoid updating the goal every frame
+    waypoints: [
+      1.0, 1.0, 0.0,       # Center
+      1.5, 1.5, 0.785,     # Quadrant 1
+      0.5, 1.5, 2.356,     # Quadrant 2
+      0.5, 0.5, -2.356,    # Quadrant 3
+      1.5, 0.5, -0.785     # Quadrant 4
+    ]

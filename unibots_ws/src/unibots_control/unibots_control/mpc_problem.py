@@ -51,7 +51,7 @@ MAX_OMEGA: float = 3.0               # yaw rate [rad/s]
 # Cost weights.
 Q_DIAG = (10.0, 10.0, 0.5)           # state tracking (px, py, theta)
 R_DIAG = (0.5, 0.5, 0.3)             # control effort (vx, vy, omega)
-RD_DIAG = (1.5, 1.5, 0.8)            # control rate / smoothness (dvx, dvy, domega)
+RD_DIAG = (0.1, 0.1, 0.1)            # control rate / smoothness (dvx, dvy, domega)
 
 # Soft-constraint slack penalties. Large relative to the tracking cost so the
 # obstacle constraints behave as effectively hard whenever a

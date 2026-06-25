@@ -379,5 +379,64 @@
     <include><name>sb_23</name><uri>model://steel_bearing</uri><pose>0.9 1.6 0.01 0 0 0</pose></include>
     <include><name>sb_24</name><uri>model://steel_bearing</uri><pose>1.1 1.6 0.01 0 0 0</pose></include> -->
 
+  <!-- Mock Opponent 1: Bottom-Left -->
+    <model name="mock_obstacle_1">
+      <static>true</static>
+      <pose>0.6 0.6 0.15 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>0.2 0.2 0.3</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.2 0.2 0.3</size></box></geometry>
+          <material><ambient>0.8 0 0 1</ambient><diffuse>0.8 0 0 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Mock Opponent 2: Bottom-Right -->
+    <model name="mock_obstacle_2">
+      <static>true</static>
+      <pose>1.4 0.6 0.15 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>0.2 0.2 0.3</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.2 0.2 0.3</size></box></geometry>
+          <material><ambient>0.8 0 0 1</ambient><diffuse>0.8 0 0 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Mock Opponent 3: Top-Left -->
+    <model name="mock_obstacle_3">
+      <static>true</static>
+      <pose>0.6 1.4 0.15 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>0.2 0.2 0.3</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.2 0.2 0.3</size></box></geometry>
+          <material><ambient>0.8 0 0 1</ambient><diffuse>0.8 0 0 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Mock Opponent 4: Top-Right -->
+    <model name="mock_obstacle_4">
+      <static>true</static>
+      <pose>1.4 1.4 0.15 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>0.2 0.2 0.3</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.2 0.2 0.3</size></box></geometry>
+          <material><ambient>0.8 0 0 1</ambient><diffuse>0.8 0 0 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
   </world>
 </sdf>

@@ -36,6 +36,8 @@ pip3 install --break-system-packages \
   cvxpygen \
   osqp
 
+pip3 install py_trees py_trees_ros
+
 # --- Nav2 full stack ---
 apt-get install -y \
   ros-lyrical-nav2-bringup \

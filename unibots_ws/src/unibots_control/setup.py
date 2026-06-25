@@ -38,6 +38,8 @@ setup(
         "console_scripts": [
             "mpc_controller_node = unibots_control.mpc_controller_node:main",
             "apf_controller_node = unibots_control.apf_controller_node:main",
+            'hardware_motor_node = unibots_control.hardware_motor_node:main',
+            'hardware_servo_node = unibots_control.hardware_servo_node:main',
         ],
     },
 )
