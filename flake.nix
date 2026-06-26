@@ -45,6 +45,9 @@
                   ament-cmake-core
                   ament-index-cpp
 
+                  # Behaviour tree engine for unibots_bt game controller
+                  behaviortree-cpp
+
                   # Gazebo + ROS Integration packages
                   #ros-gz
                   #ros-gz-bridge

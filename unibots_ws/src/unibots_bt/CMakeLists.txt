@@ -14,11 +14,19 @@ find_package(unibots_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(ament_index_cpp REQUIRED)
+find_package(behaviortree_cpp REQUIRED)
 
 add_executable(bt_game_node src/bt_game_node.cpp)
 
+target_include_directories(bt_game_node PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# Nix/Lyrical: no ament_target_dependencies — link the *_TARGETS variables.
 target_link_libraries(bt_game_node PUBLIC
   rclcpp::rclcpp
+  behaviortree_cpp::behaviortree_cpp
+  ament_index_cpp::ament_index_cpp
   ${unibots_msgs_TARGETS}
   ${geometry_msgs_TARGETS}
   ${nav_msgs_TARGETS}
@@ -28,7 +36,13 @@ target_link_libraries(bt_game_node PUBLIC
 install(TARGETS bt_game_node
   DESTINATION lib/${PROJECT_NAME})
 
+install(DIRECTORY bt/
+  DESTINATION share/${PROJECT_NAME}/bt)
+
 install(DIRECTORY config/
   DESTINATION share/${PROJECT_NAME}/config)
+
+install(DIRECTORY launch/
+  DESTINATION share/${PROJECT_NAME}/launch)
 
 ament_package()

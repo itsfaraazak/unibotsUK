@@ -1,0 +1,57 @@
+<?xml version="1.0"?>
+<!-- Unibots 2026 game tree. Priority checklist, re-read top→bottom every tick.
+     ReactiveFallback re-evaluates all branches each tick, so a higher-priority
+     stopping rule (PRE-START, TIME-UP) instantly pre-empts any running job. -->
+<root BTCPP_format="4" main_tree_to_execute="GameTree">
+  <BehaviorTree ID="GameTree">
+    <ReactiveFallback name="Priorities">
+
+      <!-- 1. PRE-START: hold still until /match/start latches -->
+      <ReactiveSequence name="PreStart">
+        <MatchNotStarted/>
+        <HoldIdle/>
+      </ReactiveSequence>
+
+      <!-- 2. TIME-UP: hard stop once 180 s elapses -->
+      <ReactiveSequence name="TimeUp">
+        <MatchTimeExpired/>
+        <FullStop/>
+      </ReactiveSequence>
+
+      <!-- 3. ENDGAME: drive home → dump → park (one trip scores net + park bonus) -->
+      <Sequence name="Endgame">
+        <InEndgameWindow/>
+        <NavToHome/>
+        <Deposit/>
+        <ParkAndHold/>
+      </Sequence>
+
+      <!-- 4. DUMP-WHEN-FULL: cash in a full hopper, then fall back to collecting -->
+      <Sequence name="DumpWhenFull">
+        <StorageFull/>
+        <NavToHome/>
+        <Deposit/>
+      </Sequence>
+
+      <!-- 5. HUNT: pick best ball, scoop if in blind-spot else drive toward it -->
+      <ReactiveSequence name="Hunt">
+        <BallKnown/>
+        <SelectTarget/>
+        <Fallback name="CaptureOrApproach">
+          <Sequence name="Capture">
+            <WithinCaptureRadius/>
+            <FireScoop/>
+          </Sequence>
+          <Approach/>
+        </Fallback>
+      </ReactiveSequence>
+
+      <!-- 6. SEARCH: patrol the arena until a ball appears -->
+      <Patrol/>
+
+      <!-- 7. FAILSAFE: nothing applied — stop and hold -->
+      <FailsafeStop/>
+
+    </ReactiveFallback>
+  </BehaviorTree>
+</root>
