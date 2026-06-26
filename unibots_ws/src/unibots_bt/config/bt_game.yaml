@@ -1,58 +1,35 @@
 bt_game_node:
   ros__parameters:
-    # Which arena wall has our deposit net. Maps to a hardcoded goal pose.
-    # Valid: north | east | south | west
-    home_zone: "north"
 
-    # Max balls to carry before triggering the DEPOSIT branch.
-    capacity: 6
+    # ── Arena / home ─────────────────────────────────────────────────────────
+    home_zone: "north"          # north | east | south | west → deposit/park pose
+    wall_offset_m: 0.15         # robot stand-off from the scoring wall
+    arena_min: 0.15             # clamp targets to the playable area (matches MPC)
+    arena_max: 1.85
 
-    # BT tick rate (Hz). Higher = more responsive but more CPU.
-    bt_frequency_hz: 20.0
+    # ── Timing ───────────────────────────────────────────────────────────────
+    tick_rate_hz: 20.0
+    match_duration_s: 180.0
+    endgame_enter_s: 158.0      # leave ~22 s to reach home + dump + settle
 
-    # APPROACH → SERVO transition: when the nearest detected ball is closer
-    # than this, switch to fine servo approach.
-    approach_dist_cm: 150.0
-
-    # SERVO → CAPTURE transition: when the ball centre pixel_y exceeds this
-    # fraction of frame height, the ball is in the blind-spot under the camera
-    # and the robot waits for the intake beam to break.
-    servo_blindspot_frac: 0.88
-
-    # Camera resolution (must match perception_node input resolution).
-    frame_height_px: 720
-
-    # Degrees to rotate per search tick. Lower = slower sweep but less overshoot.
-    search_yaw_step_deg: 30.0
-
-    # Match time thresholds (seconds from /match/start).
-    # At t_park_s the robot navigates to the home wall and stops accepting
-    # new hunt targets. At t_stop_s it hard-stops.
-    t_park_s: 170.0
-    t_stop_s: 185.0
-
-    # Duration of the dump servo sequence (open → wait → close).
-    dump_duration_s: 2.5
-
-    # Distance from the home wall at which the BT considers itself "arrived"
-    # for DEPOSIT (ALIGN_NET will then start).
-    near_wall_dist_m: 0.30
-
-    # ALIGN_NET: maximum time to spend aligning before proceeding to DUMP anyway.
-    align_timeout_s: 10.0
-
-    # ALIGN_NET: goal standoff from the wall (metres). The robot tries to reach
-    # this distance before the timeout triggers the dump.
-    align_standoff_m: 0.15
-
-    # Maximum speed during the approach phase (m/s, forwarded to /game/target;
-    # the actual speed is controlled by APF/MPC).
-    # (Informational — the BT does not set speed directly; tune in APF/MPC YAML.)
-
-    # Minimum frames a track must have been VISIBLE before being selected as a
-    # hunt target. Prevents jumping to single-frame detections.
-    min_track_frames: 3
-
-    # If true, use predicted_x/y from the ball map as the approach goal.
-    # Set to false to revert to current world_x/y (for comparison/debugging).
+    # ── Navigation / capture ─────────────────────────────────────────────────
+    goal_tol_m: 0.08
+    capture_radius_m: 0.12      # ball in intake blind-spot → SCOOP
     use_predicted_position: true
+
+    # ── Hopper ───────────────────────────────────────────────────────────────
+    storage_capacity: 6
+
+    # ── Target selection (utility weights) ───────────────────────────────────
+    weight_ping: 4.0            # rulebook points (net)
+    weight_steel: 2.0           # rulebook points (net)
+    density_bonus: 0.4          # prefer balls in clusters
+    occluded_penalty: 0.6       # trust visible balls over occluded
+
+    # ── Actuation dwell ──────────────────────────────────────────────────────
+    scoop_duration_s: 1.4       # claw grab dwell
+    dump_duration_s: 2.5        # trapdoor open → return
+
+    # ── Search patrol (flat [x0,y0, x1,y1, ...], arena-covering loop) ─────────
+    patrol_waypoints: [0.4, 0.4, 1.0, 0.4, 1.6, 0.4, 1.6, 1.0, 1.0, 1.0,
+                       0.4, 1.0, 0.4, 1.6, 1.0, 1.6, 1.6, 1.6]

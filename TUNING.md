@@ -86,42 +86,51 @@ A lower mean value on `/spatial_memory/prediction_error` = better prediction mod
 
 ## BT Game Node (`unibots_bt/config/bt_game.yaml`)
 
+Behaviour tree is BehaviorTree.CPP v4 (`bt/game_tree.xml`). All params below are live-tunable via `ros2 param set /bt_game_node <name> <value>`.
+
 ### Match Timing
 
-| Parameter | Default | Effect |
-|---|---|---|
-| `t_park_s` | 170 | Seconds after match start to enter PARK mode (navigate to home wall, stop hunting). Rule: 180 s match. Set 10 s before end to give time to park. |
-| `t_stop_s` | 185 | Seconds to hard-stop. Safety margin after PARK. |
+| Parameter | Default | Safe range | Effect |
+|---|---|---|---|
+| `tick_rate_hz` | 20.0 | 10–50 | Tree tick rate. Higher = more reactive but more CPU. |
+| `match_duration_s` | 180.0 | — | Match length (rulebook). `TIME-UP` holds position once elapsed ≥ this. |
+| `endgame_enter_s` | 158.0 | 140–168 | When `ENDGAME` fires: nav home → dump → park & hold. Earlier = safer park, less collecting. 158 leaves ~22 s runway. |
 
-### Ball Capture Thresholds
+### Target Selection
 
-| Parameter | Default | Effect |
-|---|---|---|
-| `approach_dist_cm` | 150 | Distance (cm) at which BT switches from APPROACH (spatial memory goal) to SERVO (live vision goal). Lower = faster response to ball but less benefit from prediction. |
-| `servo_blindspot_frac` | 0.88 | Fraction of frame height. When ball pixel_y > this × `frame_height_px`, ball is in the intake blind spot and the BT waits for beam break. Tune by watching `/vision/balls` pixel_y values as a ball enters the intake. |
-| `frame_height_px` | 720 | Must match camera resolution height set in `perception_node input_size`. |
-| `capacity` | 6 | Balls to collect before depositing. Rulebook §4.3: 16 ping pong + 24 steel = 40 total; robot may carry as many as physically fits. |
+`utility = value × (1 + density_bonus·density) × visibility ÷ distance`.
 
-### Deposit Sequence
+| Parameter | Default | Safe range | Effect |
+|---|---|---|---|
+| `weight_ping` | 4.0 | — | Point value of a ping-pong ball (net). Drives `value`. |
+| `weight_steel` | 2.0 | 0.5–2.0 | Point value of a steel bearing. Lower to de-prioritise steel further. |
+| `density_bonus` | 0.4 | 0.0–1.0 | Bonus per neighbouring ball — prefers clusters (grab several per trip). 0 = ignore density. |
+| `occluded_penalty` | 0.6 | 0.3–1.0 | Utility multiplier for `OCCLUDED` balls. Lower = trust only what is currently visible. |
+| `use_predicted_position` | true | — | Target the Kalman `predicted_x/y`. Set false to use `world_x/y` (last observed). |
 
-| Parameter | Default | Effect |
-|---|---|---|
-| `near_wall_dist_m` | 0.30 | Distance from home goal at which NAV_HOME is considered complete. Larger = BT moves to ALIGN_NET earlier (less precise approach). |
-| `align_timeout_s` | 10 | Max seconds spent in ALIGN_NET before DUMP fires anyway. Increase if precise alignment is needed. Decrease on match day to ensure deposit happens. |
-| `align_standoff_m` | 0.15 | How far from the wall the robot tries to be during ALIGN_NET (metres). Prevents crashing into the wall. |
-| `dump_duration_s` | 2.5 | Seconds the servo stays open during deposit. Must be long enough for all balls to fall out. |
+### Capture
 
-### Search Behaviour
+| Parameter | Default | Safe range | Effect |
+|---|---|---|---|
+| `capture_radius_m` | 0.12 | 0.08–0.20 | Distance to target at which `SCOOP` fires (ball in intake blind-spot). Too small → robot overshoots without scooping. Too large → scoops before the ball is captured. |
+| `scoop_duration_s` | 1.4 | 0.8–2.5 | Hold while the claw grabs before selecting the next target. |
 
-| Parameter | Default | Effect |
-|---|---|---|
-| `search_yaw_step_deg` | 30 | Degrees per BT tick added to search yaw. At 20 Hz: 30°/tick × 20 = 600°/s rotation (very fast). Reduce to 5–10 for a slower sweep that gives YOLO time to detect. |
+### Deposit / Park
 
-### Prediction Passthrough
+| Parameter | Default | Safe range | Effect |
+|---|---|---|---|
+| `storage_capacity` | 6 | 1–8 | Balls held before a mid-game `DUMP-WHEN-FULL` trip. Larger = fewer interruptions but more points at risk if a deposit fails. |
+| `dump_duration_s` | 2.5 | 1.5–4.0 | Seconds the trapdoor stays open. Must exceed the time for all balls to fall through. |
+| `wall_offset_m` | 0.15 | 0.10–0.25 | Robot stand-off from the scoring wall at the home/net pose. Smaller = closer (risk of contact), larger = mechanism may not reach the net. Also the `NAV_HOME` arrival tolerance. |
 
-| Parameter | Default | Effect |
-|---|---|---|
-| `use_predicted_position` | true | If true, APPROACH drives to `predicted_x/y` from spatial_memory. Set false to drive to `world_x/y` (current position). Use false to isolate prediction accuracy issues. |
+### Arena / Search
+
+| Parameter | Default | Safe range | Effect |
+|---|---|---|---|
+| `arena_min / arena_max` | 0.15 / 1.85 | — | Clamp published goals to the playable area (matches MPC). |
+| `goal_tol_m` | 0.08 | 0.05–0.15 | Distance to a patrol waypoint at which it is considered reached and the cursor advances. |
+| `home_zone` | "north" | north/east/south/west | Scoring wall → deposit/park pose. Set to the wall the judges assign. |
+| `patrol_waypoints` | (9-pt loop) | — | Flat `[x0,y0, x1,y1, …]` covering loop the `SEARCH` patrol drives until a ball appears. |
 
 ---
 

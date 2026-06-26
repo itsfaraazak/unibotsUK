@@ -21,11 +21,18 @@ colcon build
 # Source
 source install/setup.bash
 
-# Match day — single launch entry point
-ros2 launch unibots_game match_day.launch.py home_zone:=north use_sim_time:=false
+# Match day — single launch entry point (lives in unibots_bt)
+# Wires camera → perception → spatial_memory → bt_game → control (+ hardware, + localization).
+ros2 launch unibots_bt match.launch.py home_zone:=north use_sim_time:=false
+#   controller:=mpc|apf   hardware:=true|false   camera:=true|false   localization:=true|false
 
-# Start the match after launch
-ros2 topic pub /match/start std_msgs/msg/Bool '{data: true}' --once
+# Game controller alone (dev / bench testing, no perception or hardware)
+ros2 launch unibots_bt bt_game.launch.py home_zone:=north
+
+# Start the match after launch.
+# NOTE: /match/start uses a LATCHED (transient_local) subscriber — a manual
+# publish MUST match its durability or the message is dropped.
+ros2 topic pub --qos-durability transient_local /match/start std_msgs/msg/Bool '{data: true}' --once
 
 # Monitor
 ros2 topic echo /game/state
@@ -77,7 +84,14 @@ bt_game_node (C++)            →  /game/target (PoseStamped)
                                   /game/ball_collected (UInt32)
                                         ↓
 apf_controller_node / mpc_controller_node → /cmd_vel (TwistStamped)
+                                        ↓
+hardware_motor_node  ← /cmd_vel          (real robot only)
+hardware_servo_node  ← /servo/command    (real robot only)
 ```
+
+**`/servo/command` (String) table:** `SCOOP` = claw grab (fired by `FireScoop` on
+capture), `OPEN` = trapdoor open / dump hopper into net (fired by `Deposit`),
+`CLOSE` = trapdoor return.
 
 **`unibots_camera`** — Python/ament_python. `CameraNode` opens a V4L2 device via OpenCV, publishes raw BGR frames.
 
@@ -85,11 +99,33 @@ apf_controller_node / mpc_controller_node → /cmd_vel (TwistStamped)
 
 **`unibots_spatial_memory`** — C++/ament_cmake. Persistent Kalman ball tracker (state [x,y,vx,vy], Eigen3). Separate noise params for ping pong vs steel. Motion gating, switchable prediction modes (none/constant_velocity/friction). Density scoring. Publishes predicted ball positions and prediction error metric. Config: `config/spatial_memory.yaml`.
 
-**`unibots_bt`** — C++/ament_cmake. Behaviour tree game controller. Reads `/spatial_memory/ball_map` for smart target selection (uses predicted positions). Full tree: STOP → PARK → DEPOSIT(nav+align+dump) → HUNT(capture/servo/approach) → SEARCH. State published only on change. Config: `config/bt_game.yaml`.
+**`unibots_bt`** — C++/ament_cmake. Behaviour tree game controller, rewritten on
+**BehaviorTree.CPP v4** (the tree is XML, Groot-visualisable). Structure:
+- `bt/game_tree.xml` — a `ReactiveFallback` priority checklist re-read at 20 Hz:
+  `PRE-START → TIME-UP → ENDGAME(nav→dump→park) → DUMP-WHEN-FULL → HUNT(select→capture/approach) → SEARCH → FAILSAFE`.
+- `include/unibots_bt/game_context.hpp` — `GameContext`, the shared blackboard state
+  (pose, ball map, counters, latches) + the publish helpers. The only motion output is
+  `/game/target`; **it never publishes `/cmd_vel`** (that is the controller's job).
+- `include/unibots_bt/bt_nodes.hpp` — the custom leaf nodes (conditions + stateful
+  actions) and `registerNodes()`.
+- `src/bt_game_node.cpp` — ROS plumbing: declares params, fills the context from
+  subscriptions, loads the XML, ticks it.
+
+Target selection picks the highest-utility ball
+(`value × density × visibility ÷ distance`) — `value` uses the rulebook points
+(`ping_pong`=4, `steel`=2). Capture is **radius-based**: within `capture_radius_m` of
+the target → `SCOOP` + publish `track_id` on `/game/ball_collected` (spatial_memory then
+marks it `COLLECTED`). State is published only on change. Config: `config/bt_game.yaml`.
+Launch: `match.launch.py` (full stack) and `bt_game.launch.py` (node alone).
+
+> Ball-type strings are `"ping_pong"` / `"steel"` (as published by perception /
+> spatial_memory) — NOT `"ping_pong_ball"`. The old hand-rolled BT compared against
+> the wrong string; the rewrite uses the correct ones.
 
 **`unibots_msgs`** — Custom message package. Defines `BallDetection`, `BallArray`, `ObstacleDetection`, `ObstacleArray`, `WorldBall`, `BallMap`.
 
-**`unibots_game`** — Python/ament_python. Contains `game_state_node.py` (legacy FSM, reads `/spatial_memory/ball_map`) and launch files including `match_day.launch.py`.
+**`unibots_game`** — REMOVED. The legacy Python FSM and its `match_day.launch.py` were
+deleted; the top-level entry point is now `unibots_bt/launch/match.launch.py`.
 
 **`unibots_control`** — Python. APF and MPC controllers. Both now correctly subscribe to `/vision/obstacles` as `ObstacleArray` (was incorrectly `Detection2DArray` — bug fixed).
 
@@ -101,6 +137,9 @@ apf_controller_node / mpc_controller_node → /cmd_vel (TwistStamped)
 - `rclcpp::Time` has no `to_msg()` in this distro — use implicit conversion: `header.stamp = now()`.
 - `rclcpp::Duration` same: `marker.lifetime = rclcpp::Duration::from_seconds(0.5)`.
 - Eigen3 needs explicit HINTS path: `find_package(Eigen3 REQUIRED NO_MODULE HINTS "/nix/store/kki9hn7p0dc4186z31z5qz0kvaxmjk0s-eigen-3.4.1/share/eigen3/cmake")`.
+- BehaviorTree.CPP (added to `flake.nix` as `behaviortree-cpp`, resolves to v4.9.0) exports
+  the target **`behaviortree_cpp::behaviortree_cpp`** — NOT `BT::behaviortree_cpp`. Link it
+  directly (no `ament_target_dependencies`). See `unibots_bt/CMakeLists.txt`.
 
 ## Camera FOV Calibration (REQUIRED for accurate distance/bearing)
 
@@ -134,4 +173,8 @@ cd unibots_ws && colcon build --packages-select unibots_perception
 - `ObstacleDetection.world_x/world_y` are always 0 — EKF + homography not wired; obstacle world position is computed in APF/MPC callbacks from `bearing_deg` + `distance_m` + robot pose
 - `debug_visualiser` GUI display (`cv2.imshow`) is commented out; saves frames to `/tmp/unibots_debug/` every 10 frames
 - Gazebo integration packages (`ros-gz*`) are commented out in `flake.nix`
-- ALIGN_NET is timeout-only — AprilTag lateral/yaw correction exists in old FSM but not yet ported to C++ BT
+- Net deposit/park alignment is open-loop — the BT drives to the `home_zone` pose and
+  pushes; AprilTag lateral/yaw correction at the wall is not yet wired into the C++ BT.
+- The new BT capture is **radius-based** (`capture_radius_m`), not ToF/coast — the old
+  `/sensors/tof_distance` blind-spot capture and the in-place yaw search were dropped
+  (the holonomic controller faces its travel direction, so SEARCH is a moving patrol).
