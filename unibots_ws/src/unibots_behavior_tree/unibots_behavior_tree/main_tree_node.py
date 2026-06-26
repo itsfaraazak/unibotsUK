@@ -116,6 +116,9 @@ class UnibotsBehaviorTree(Node):
         track_seq = py_trees.composites.Sequence(name="Capture_Ball", memory=False)
         track_seq.add_children([
             BallDetected("See_Ball?"),
+            SelectBallTarget("Choose_Best_Ball", self),
+            # Passing None tells it to read the ball location from the blackboard!
+            NavigateToTarget("Approach_Ball", self, target_topic, target_x=None, target_y=None, target_yaw=None, tolerance=tol), 
             CaptureSequence("Trigger_Scoop", self, scoop_topic, tof_thresh)
         ])
 
@@ -124,6 +127,9 @@ class UnibotsBehaviorTree(Node):
         for i, wp in enumerate(waypoints):
             explore_seq.add_child(
                 NavigateToTarget(f"Nav_WP_{i}", self, target_topic, wp[0], wp[1], wp[2], tol)
+            )
+            explore_seq.add_child(
+                SpinBehavior(f"Spin_{i}", self)
             )
 
         root.add_children([endgame_seq, full_seq, track_seq, explore_seq])

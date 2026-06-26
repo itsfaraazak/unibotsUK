@@ -4,6 +4,50 @@ import py_trees
 import rclpy
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Bool
+from geometry_msgs.msg import Twist
+
+class SpinBehavior(py_trees.behaviour.Behaviour):
+    """Action: Spin 360 degrees."""
+    def __init__(self, name, node, spin_topic="/cmd_vel"):
+        super().__init__(name)
+        self.node = node
+        self.cmd_pub = self.node.create_publisher(Twist, spin_topic, 10)
+        self.start_time = None
+
+    def initialise(self):
+        self.start_time = time.time()
+
+    def update(self):
+        # Publish rotation command
+        msg = Twist()
+        msg.angular.z = 1.0 # Adjust speed as needed
+        self.cmd_pub.publish(msg)
+        
+        # Check if 360 spin is done (calibrate duration based on robot speed)
+        if time.time() - self.start_time > 4.0: 
+            return py_trees.common.Status.SUCCESS
+        return py_trees.common.Status.RUNNING
+
+class SelectBallTarget(py_trees.behaviour.Behaviour):
+    """Action: Priority algorithm to pick the best ball."""
+    def __init__(self, name, node):
+        super().__init__(name)
+        self.node = node
+        self.blackboard = py_trees.blackboard.Client(name=name)
+        self.blackboard.register_key(key="detected_balls", access=py_trees.common.Access.READ)
+        self.blackboard.register_key(key="target_pose", access=py_trees.common.Access.WRITE)
+
+    def update(self):
+        balls = self.blackboard.get("detected_balls")
+        if not balls:
+            return py_trees.common.Status.FAILURE
+        
+        # Priority Logic: Pick the closest ball (or apply your custom math here)
+        best_ball = min(balls, key=lambda b: b['dist'])
+        
+        # Write the chosen target to blackboard for NavigateToTarget to use
+        self.blackboard.set("target_pose", best_ball['pose'])
+        return py_trees.common.Status.SUCCESS
 
 class CheckEndgame(py_trees.behaviour.Behaviour):
     """Condition: Returns SUCCESS if elapsed time is greater than endgame_time_s."""
@@ -46,8 +90,8 @@ class BallDetected(py_trees.behaviour.Behaviour):
 
 class NavigateToTarget(py_trees.behaviour.Behaviour):
     """Action: Publishes a goal to mpc_controller_node.py and waits until reached."""
-    # Added target_topic argument here
-    def __init__(self, name, node, target_topic, target_x, target_y, target_yaw, tolerance):
+    # Note the default None values for dynamic targeting!
+    def __init__(self, name, node, target_topic, target_x=None, target_y=None, target_yaw=None, tolerance=0.15):
         super().__init__(name)
         self.node = node
         self.target_x = target_x
@@ -57,31 +101,39 @@ class NavigateToTarget(py_trees.behaviour.Behaviour):
         
         self.blackboard = py_trees.blackboard.Client(name=name)
         self.blackboard.register_key(key="current_pose", access=py_trees.common.Access.READ)
+        self.blackboard.register_key(key="target_pose", access=py_trees.common.Access.READ)
         
-        # Uses the dynamic topic from the config
         self.target_pub = self.node.create_publisher(PoseStamped, target_topic, 10)
 
     def update(self):
-        # 1. ALWAYS publish the goal to keep the MPC node from timing out
+        # 1. Determine Target (Static Waypoint vs Dynamic Ball Target)
+        if self.target_x is None:
+            dynamic_target = self.blackboard.get("target_pose")
+            if dynamic_target is None:
+                return py_trees.common.Status.FAILURE
+            tx, ty, tyaw = dynamic_target
+        else:
+            tx, ty, tyaw = self.target_x, self.target_y, self.target_yaw
+
+        # 2. ALWAYS publish the goal to keep the MPC node from timing out
         msg = PoseStamped()
         msg.header.stamp = self.node.get_clock().now().to_msg()
         msg.header.frame_id = "map"
-        msg.pose.position.x = self.target_x
-        msg.pose.position.y = self.target_y
-        msg.pose.orientation.z = math.sin(self.target_yaw / 2.0)
-        msg.pose.orientation.w = math.cos(self.target_yaw / 2.0)
+        msg.pose.position.x = float(tx)
+        msg.pose.position.y = float(ty)
+        msg.pose.orientation.z = math.sin(tyaw / 2.0)
+        msg.pose.orientation.w = math.cos(tyaw / 2.0)
         
         self.target_pub.publish(msg)
 
-        # 2. Check distance to target
+        # 3. Check distance to target
         current_pose = self.blackboard.get("current_pose")
-        
         if current_pose is None or current_pose == [0.0, 0.0, 0.0]:
             return py_trees.common.Status.RUNNING
 
-        dist = math.hypot(current_pose[0] - self.target_x, current_pose[1] - self.target_y)
+        dist = math.hypot(current_pose[0] - tx, current_pose[1] - ty)
         if dist <= self.tolerance:
-            self.node.get_logger().info(f"Waypoint Reached: [{self.target_x}, {self.target_y}]")
+            self.node.get_logger().info(f"Waypoint Reached: [{tx:.2f}, {ty:.2f}]")
             return py_trees.common.Status.SUCCESS
             
         return py_trees.common.Status.RUNNING

@@ -22,17 +22,6 @@ def generate_launch_description():
         parameters=[config, {'use_sim_time': True}] 
     )
 
-    # --- 2. Full Simulation Stack (Gazebo, RViz, Controllers) ---
-    # This calls the full_sim.launch.py file which handles everything needed 
-    # to render the robot and process movement commands.
-    sim_pkg = get_package_share_directory('unibots_sim')
-    full_sim_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(sim_pkg, 'launch', 'full_sim.launch.py')
-        )
-    )
-
     return LaunchDescription([
-        full_sim_launch,
         bt_node
     ])
