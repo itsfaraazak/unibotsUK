@@ -43,4 +43,7 @@ install(TARGETS perception_node
 install(DIRECTORY models/
   DESTINATION share/${PROJECT_NAME}/models)
 
+install(DIRECTORY config/
+  DESTINATION share/${PROJECT_NAME}/config)
+
 ament_package()

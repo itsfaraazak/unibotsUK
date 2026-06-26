@@ -1,0 +1,57 @@
+spatial_memory_node:
+  ros__parameters:
+    # Ball association: maximum distance between a new detection and an existing
+    # track to be considered the same ball. Increase if balls move fast between frames.
+    assoc_radius_m: 0.25
+
+    # Frames a ball can be missed before being removed from the map.
+    # At 20 Hz: 8 frames = 0.4 s of occlusion tolerance.
+    max_occlusion_frames: 8
+
+    # How far ahead (seconds) to predict ball position for BT planning.
+    pred_horizon_s: 0.5
+
+    # Prediction mode: "none" | "constant_velocity" | "friction"
+    #   none             — no extrapolation; use current Kalman state
+    #   constant_velocity — linear extrapolation: px = x + vx * horizon
+    #   friction          — exponential velocity decay; more realistic on foam
+    prediction_mode: "friction"
+
+    # Kalman process noise — position component (applies to both types)
+    kalman_q_pos: 0.01
+
+    # Kalman process noise — velocity component (ball-type specific)
+    # Ping pong is lighter and bouncier → needs higher velocity uncertainty.
+    kalman_q_vel_ping_pong: 1.0
+    # Steel rolls more predictably on foam → lower velocity uncertainty.
+    kalman_q_vel_steel: 0.3
+
+    # Kalman measurement noise (standard deviation of world-projection error, m^2)
+    kalman_r_pos: 0.05
+
+    # Motion gating: velocity Kalman update fires only if the ball moved more
+    # than this between consecutive measurements. Suppresses velocity drift
+    # from detector jitter when the ball is stationary.
+    motion_gate_m: 0.03
+
+    # Friction coefficients (deceleration fraction per second) for friction mode.
+    # Tune by rolling a ball across the arena and observing how quickly it stops.
+    friction_coeff_ping_pong: 0.15
+    friction_coeff_steel: 0.05
+
+    # Radius within which to count nearby balls for density scoring.
+    density_radius_m: 0.50
+
+    # Score multiplier per unit of density: score = conf * (1 + bonus * density)
+    density_bonus: 0.4
+
+    # Detections below this confidence are ignored.
+    min_confidence: 0.35
+
+    # Rate at which the ball map is published (Hz).
+    publish_rate_hz: 20.0
+
+    # Seconds after which a COLLECTED track is removed from the map.
+    # After deposit we want old COLLECTED tracks to expire so the BT can
+    # re-acquire balls left behind.
+    collect_expiry_s: 45.0

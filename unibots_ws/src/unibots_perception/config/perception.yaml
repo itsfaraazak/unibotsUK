@@ -1,0 +1,18 @@
+perception_node:
+  ros__parameters:
+    # YOLO confidence threshold. Detections below this are discarded.
+    # Lower = catches more edge/partial balls (more false positives).
+    # Higher = fewer false positives (may miss real balls at distance).
+    conf_threshold: 0.40
+
+    # YOLO input resolution (pixels, square). Must match the trained model size.
+    # 256 → ~30 fps on RPi4. 320 → ~22 fps but more accurate at distance.
+    input_size: 256
+
+    # CPU threads for NCNN inference. 4 = all cores on RPi4.
+    num_threads: 4
+
+    # Horizontal field of view of the camera lens (degrees).
+    # CALIBRATE THIS per lens — wrong value gives wrong distances/bearings.
+    # See CLAUDE.md "Camera FOV Calibration" for procedure.
+    hfov_deg: 62.5

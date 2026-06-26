@@ -139,16 +139,15 @@ private:
                 obs.world_x = 0.0f;
                 obs.world_y = 0.0f;
 
-                // Estimate radius from bbox width using pinhole model
-                // bbox_px / focal_px ≈ ROBOT_WIDTH_M / distance_m
-                // radius = half width
+                // Estimate radius and distance from bbox width via pinhole model
                 const float dist_m = (bbox_px > 1.0f)
                     ? (ROBOT_WIDTH_M * focal_px) / bbox_px
                     : 1.0f;
-                (void)dist_m;  // available for future use
-                obs.radius_m = ROBOT_WIDTH_M / 2.0f;
-
+                obs.radius_m           = ROBOT_WIDTH_M / 2.0f;
                 obs.is_confirmed_robot = true;
+                obs.pixel_x            = cx;
+                obs.bearing_deg        = bearing_deg;
+                obs.distance_m         = dist_m;
 
                 obstacles.obstacles.push_back(obs);
             }
