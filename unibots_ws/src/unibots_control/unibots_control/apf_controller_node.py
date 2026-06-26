@@ -28,7 +28,7 @@ from geometry_msgs.msg import PoseStamped, Quaternion, TwistStamped
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from rclpy.qos import QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
-from vision_msgs.msg import Detection2DArray
+from unibots_msgs.msg import ObstacleArray
 
 # ----------------------------------------------------------------------------
 # Named constants (NO magic numbers).
@@ -121,7 +121,7 @@ class ApfControllerNode(Node):
         self.create_subscription(Odometry, TOPIC_ODOM, self._odom_cb, qos)
         self.create_subscription(PoseStamped, TOPIC_TARGET, self._target_cb, qos)
         self.create_subscription(
-            Detection2DArray, TOPIC_OBSTACLES, self._obstacles_cb, qos
+            ObstacleArray, TOPIC_OBSTACLES, self._obstacles_cb, qos
         )
 
         self._cmd_pub = self.create_publisher(TwistStamped, TOPIC_CMD_VEL, qos)
@@ -149,20 +149,22 @@ class ApfControllerNode(Node):
         self._goal = np.array([p.x, p.y, theta], dtype=float)
         self._goal_reached = False
 
-    def _obstacles_cb(self, msg: Detection2DArray) -> None:
-        """Store obstacles from a vision_msgs/Detection2DArray.
+    def _obstacles_cb(self, msg: ObstacleArray) -> None:
+        """Project ObstacleArray detections to world frame using bearing/distance.
 
-        Field mapping (same as the MPC node):
-            bbox.center.position.x -> obstacle world_x [m]
-            bbox.center.position.y -> obstacle world_y [m]
-            bbox.size_x            -> obstacle radius   [m]
+        Uses the current robot pose to convert camera-relative bearing_deg +
+        distance_m into arena-frame (ox, oy). Relies on _current_pose being set
+        by the odometry callback first.
         """
+        if self._current_pose is None:
+            return
+        rx, ry, ryaw = self._current_pose
         obstacles: List[np.ndarray] = []
-        for det in msg.detections:
-            ox = det.bbox.center.position.x
-            oy = det.bbox.center.position.y
-            radius = det.bbox.size_x
-            obstacles.append(np.array([ox, oy, radius], dtype=float))
+        for obs in msg.obstacles:
+            bearing_rad = math.radians(obs.bearing_deg)
+            ox = rx + obs.distance_m * math.cos(ryaw + bearing_rad)
+            oy = ry + obs.distance_m * math.sin(ryaw + bearing_rad)
+            obstacles.append(np.array([ox, oy, obs.radius_m], dtype=float))
         self._obstacles = obstacles
 
     # ------------------------------------------------------------------------

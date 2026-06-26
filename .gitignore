@@ -22,6 +22,10 @@ __pycache__/
 # RViz session files (auto-generated, not useful to commit)
 *.rviz
 
+Rulebook Unibots 2026 V1.2.pdf
+node_modules/
+package-lock.json
+package.json
 
 **/.ssh/
 **/.gnupg/
