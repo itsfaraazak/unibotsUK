@@ -1,0 +1,62 @@
+match_orchestrator:
+  ros__parameters:
+
+    # ── Home / arena ───────────────────────────────────────────────────────
+    # home dictates BOTH the start pose and the final deposit pose.
+    # valid tiles: south(1,0) east(2,1) north(1,2) west(0,1)
+    home: "south"
+    arena_size_m: 2.0
+
+    # ── Timing (seconds) ──────────────────────────────────────────────────
+    tick_rate_hz: 20.0
+    match_duration_s: 180.0
+    endgame_deposit_s: 150.0
+
+    # ── Navigation / goals ────────────────────────────────────────────────
+    goal_tolerance_m: 0.08
+    goal_stability_buffer_m: 0.02     # ignore goal jitter < 2cm (Section 2)
+    startup_forward_frac: 0.25
+    waypoints: [0.4, 0.4, 1.0, 0.4, 1.6, 0.4,
+                1.6, 1.0, 1.0, 1.0, 0.4, 1.0,
+                0.4, 1.6, 1.0, 1.6, 1.6, 1.6]
+
+    # ── In-place spin / wall-flush (direct /cmd_vel) ──────────────────────
+    spin_speed_rad_s: 1.2
+    spin_target_rad: 6.2831853
+    flush_speed_m_s: 0.15
+    flush_duration_s: 2.0
+
+    # ── Capture / collection + ToF claw-false-trigger guard ───────────────
+    tof_trigger_m: 0.05
+    tof_rearm_m: 0.12
+    tof_consecutive: 3                # samples below trigger before firing
+    tof_inhibit_after_scoop_s: 0.8    # ignore ToF while claw retracts
+    scoop_dwell_s: 1.4
+    storage_capacity: 6
+
+    # ── Deposit dwell ─────────────────────────────────────────────────────
+    dump_open_dwell_s: 1.5
+    dump_close_dwell_s: 0.8
+
+    # ── Chase / target selection ──────────────────────────────────────────
+    use_predicted_position: true
+    loss_grace_s: 1.0
+    density_bonus: 0.4
+    ball_stale_s: 1.0
+
+    # ── AprilTag map (id list + flat [x0,y0, x1,y1, ...]) ─────────────────
+    apriltag_ids: [0, 1, 2, 3, 4, 5, 6, 7]
+    apriltag_xy: [1.0, 0.0, 2.0, 1.0, 1.0, 2.0, 0.0, 1.0,
+                  0.0, 0.0, 2.0, 0.0, 2.0, 2.0, 0.0, 2.0]
+
+    # ── Topics ────────────────────────────────────────────────────────────
+    odom_topic: "/odom/filtered"
+    ball_map_topic: "/spatial_memory/ball_map"
+    tof_topic: "/sensors/tof_distance"
+    button_topic: "/match/button"
+    start_topic: "/match/start"
+    target_topic: "/game/target"
+    cmd_vel_topic: "/cmd_vel"
+    servo_topic: "/servo/command"
+    collected_topic: "/game/ball_collected"
+    mpc_enable_topic: "/mpc/enable"
