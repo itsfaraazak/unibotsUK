@@ -303,6 +303,42 @@ ros2 topic echo /game/ball_collected                   # capture events
 
 ---
 
+## Deployment (Raspberry Pi 5)
+
+Reproducible, infrastructure-as-code deploy lives in `deploy/`. Every C++ node is built
+with **max Cortex-A76 optimization** (`-O3 -mcpu=cortex-a76+crypto -mtune=cortex-a76
+-flto`); all flags live in one file, `deploy/build.env`. The Pi runs **Ubuntu 26.04
+(aarch64) on apt ROS — no Nix on the robot**.
+
+Pick a path (full step-by-step in `deploy/INSTRUCTIONS.md`):
+
+| Path | On the Pi | Compiles on Pi? | Editable over SSH? | Perception (ncnn) |
+|------|-----------|-----------------|--------------------|-------------------|
+| **Source on Pi** (recommended for edits) | apt ROS + git | yes (native, fast) | **yes** | yes¹ |
+| **Prebuilt tarball** (fastest boot) | apt ROS only | no | no | no¹ |
+| **Docker** | Docker | no (or in-container) | rebuild in container | yes |
+| **Ansible** (fallback) | nothing (laptop provisions) | yes | yes | yes |
+
+```bash
+# Source-on-Pi (the editable path):
+git clone <repo> ~/unibotsUK && cd ~/unibotsUK
+WS=$PWD/unibots_ws bash deploy/build.sh          # native A76 optimized build
+source unibots_ws/install/setup.bash
+ros2 launch unibots_bt match.launch.py home_zone:=north hardware:=true
+# match-day edit: nano src/... ; WS=$PWD/unibots_ws bash deploy/build.sh ; relaunch
+```
+
+- **Cross-build the aarch64 tarball in advance** (on an x86 laptop, no Docker, via QEMU +
+  bubblewrap): `deploy/cross-build/cross-build.sh` → `deploy/artifacts/unibots-ws-arm64.tar.gz`.
+  Method + how to update the package: `deploy/cross-build/README.md`.
+- ¹ **`ncnn` is not an apt package on Ubuntu 26.04 arm64.** Build it from source on the Pi
+  to enable `unibots_perception`, or run the stack `camera:=false` for a motion/BT/control
+  bring-up. The prebuilt tarball excludes perception for this reason.
+- Tunables: `deploy/build.env` (optimization), `deploy/packages.apt` (deps),
+  `deploy/runtime.env` (match-day `HOME_ZONE`/`CONTROLLER`/...).
+
+---
+
 ## Package Summary
 
 | Package | Language | Purpose |

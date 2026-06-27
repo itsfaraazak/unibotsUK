@@ -1,0 +1,7 @@
+# Stable device access for the Unibots robot (Pi 5).
+# Camera, I2C and GPIO owned by the gpio/i2c/video groups so the run user
+# (and the ROS nodes) can open them without root.
+KERNEL=="i2c-[0-9]*", GROUP="i2c", MODE="0660"
+SUBSYSTEM=="gpio", GROUP="gpio", MODE="0660"
+KERNEL=="gpiochip[0-9]*", GROUP="gpio", MODE="0660"
+SUBSYSTEM=="video4linux", GROUP="video", MODE="0660"

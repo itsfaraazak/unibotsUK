@@ -1,0 +1,26 @@
+# ============================================================================
+# deploy/ansible/group_vars/all.yml — knobs for the native (apt) Pi 5 deploy.
+# ============================================================================
+# Build flags live in deploy/build.env (shared with Docker) — the playbook
+# reads them from there, so do NOT duplicate optimization settings here.
+# ----------------------------------------------------------------------------
+
+# Where the repo is checked out / synced to on the robot.
+repo_dir: "/home/{{ ansible_user }}/unibotsUK"
+
+# Sync the local working tree to the robot (true) or assume git is already
+# present on the Pi and just build (false).
+sync_source: true
+local_repo_root: "{{ playbook_dir }}/../.."
+
+# Match-day runtime defaults (written into deploy/runtime.env on the robot).
+home_zone: north
+controller: mpc
+hardware: true
+camera: true
+localization: true
+use_sim_time: false
+ros_domain_id: 42
+
+# systemd service name.
+service_name: unibots

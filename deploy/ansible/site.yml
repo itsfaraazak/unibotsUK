@@ -1,0 +1,36 @@
+# ============================================================================
+# deploy/ansible/site.yml — provision a bare Ubuntu 26.04 Pi 5 for a match.
+# ============================================================================
+# Idempotent: re-run any time. Roles run in order:
+#   system  → apt repo, base tools, udev rules, i2c/gpio groups
+#   ros     → ROS 2 apt repo + all packages from deploy/packages.apt
+#   build   → optimized colcon build via the shared deploy/build.sh
+#   service → runtime.env + systemd unit that boots the match stack
+#
+#   ansible-playbook -i deploy/ansible/inventory.ini deploy/ansible/site.yml
+#   # build only:   --tags build      runtime config only: --tags service
+# ----------------------------------------------------------------------------
+- name: Provision Unibots Pi 5 (Ubuntu 26.04, native)
+  hosts: pi5
+  become: true
+
+  pre_tasks:
+    # Load ROS_DISTRO from the single-source-of-truth build.env.
+    - name: Read ROS_DISTRO from deploy/build.env
+      ansible.builtin.set_fact:
+        ros_distro: >-
+          {{ (lookup('file', local_repo_root ~ '/deploy/build.env')
+              | regex_search('ROS_DISTRO=([^\n]+)', '\1') | first) | trim }}
+      run_once: true
+      delegate_to: localhost
+      become: false
+
+    - name: Show resolved configuration
+      ansible.builtin.debug:
+        msg: "ROS_DISTRO={{ ros_distro }}  repo_dir={{ repo_dir }}  controller={{ controller }}"
+
+  roles:
+    - { role: system,  tags: [system] }
+    - { role: ros,     tags: [ros] }
+    - { role: build,   tags: [build] }
+    - { role: service, tags: [service] }

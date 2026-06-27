@@ -1,0 +1,25 @@
+# Base system setup: tools, hardware access groups, udev rules.
+---
+- name: Install base utilities
+  ansible.builtin.apt:
+    name: [ca-certificates, curl, gnupg, lsb-release, software-properties-common, rsync, git]
+    state: present
+    update_cache: true
+
+- name: Enable the universe repository
+  ansible.builtin.apt_repository:
+    repo: "deb http://ports.ubuntu.com/ubuntu-ports {{ ansible_distribution_release }} universe"
+    state: present
+
+- name: Add the run user to the i2c, gpio, video, dialout groups
+  ansible.builtin.user:
+    name: "{{ ansible_user }}"
+    groups: [i2c, gpio, video, dialout]
+    append: true
+
+- name: Install udev rules for camera / I2C / GPIO stable access
+  ansible.builtin.copy:
+    src: 99-unibots.rules
+    dest: /etc/udev/rules.d/99-unibots.rules
+    mode: "0644"
+  notify: reload udev

@@ -1,0 +1,5 @@
+# Collections needed by site.yml.
+#   ansible-galaxy collection install -r deploy/ansible/requirements.yml
+collections:
+  - name: ansible.posix      # synchronize module
+  - name: community.general  # misc helpers

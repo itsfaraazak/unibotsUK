@@ -1,0 +1,10 @@
+# Keep the build context small + reproducible (Dockerfile rebuilds from src).
+.git
+result
+unibots_ws/build
+unibots_ws/install
+unibots_ws/log
+**/__pycache__
+**/*.pyc
+*.tar
+deploy/artifacts

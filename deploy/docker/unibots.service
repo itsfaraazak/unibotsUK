@@ -1,0 +1,25 @@
+# ============================================================================
+# deploy/docker/unibots.service — boot the match stack via docker compose.
+# ============================================================================
+# Install on the Pi 5:
+#   sudo cp deploy/docker/unibots.service /etc/systemd/system/unibots.service
+#   sudo systemctl daemon-reload && sudo systemctl enable --now unibots
+# Edit REPO= below to the checkout path on the robot.
+# ----------------------------------------------------------------------------
+[Unit]
+Description=Unibots UK 2026 match stack (Docker)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=REPO=/home/unibots/unibotsUK
+WorkingDirectory=/home/unibots/unibotsUK
+ExecStart=/usr/bin/docker compose -f deploy/docker/docker-compose.yml --env-file deploy/runtime.env up -d
+ExecStop=/usr/bin/docker compose -f deploy/docker/docker-compose.yml down
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

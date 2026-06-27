@@ -1,0 +1,280 @@
+Unibots Rulebook
+Season 2025 - 2026
+Last Modified: 19/01/2026
+1. Game Rules
+Abbreviations:
+UO - Unibots Organiser’s
+1.1. The objective of this year's game is to collect as many magnetic ball-bearings in
+your robot and drop as many ping-pong balls in your team's scoring net during
+the 180 second match. Scoring nets are now placed outside the arena floor,
+requiring a more interesting mechanism to score.
+1.2. The organiser will announce the number of matches and the match schedule at
+the start of the competition.
+1.3. A match consists of four teams (or in some cases two teams) and lasts for 180
+seconds. Each of the four teams playing will have an associated judge, who will
+score points for their individual team as the game is played.
+1.4. Matchmaking will occur at the beginning of the competition day, and aim to
+evenly spread teams out both in terms of their match times, and who they are
+competing against.
+1.5. The game will be played in the arena defined in Section 4.
+1.6. Before a match begins:
+1.6.1. Participating teams will be informed of their positions in the arena at
+least five minutes before the match (North, South, East or West Zone and
+their corresponding colours: Yellow, Orange, Purple or Green). This is to
+allow teams to update their code with the appropriate AprilTags ID at their
+own zones. The team will be rotating across these different positions
+throughout different matches.
+1.6.2. Participating teams must place their robot touching a wall of their
+associated scoring zone. The robot must be placed such that it is in-front
+of its scoring net, with no parts extending outwidth the boundaries of the
+net.
+1.7. Only teams participating in the current match are allowed around the arena itself.
+Only a maximum of two members of each participating team are allowed to be
+next to their team's scoring zone. In the event that a competition day is using
+multiple arenas at once, teams in the preparing arena are allowed to have more
+than two members around the arena, until the match begins.
+1.8. All participants and UO volunteers who are arena-side must wear safety goggles
+or their own glasses.
+1.9. Robots must be started by teams leaning into the arena to press a physical start
+button on their robot when instructed to do so. At any other time during the
+match, team members cannot be in contact with their robot, the arena, or any
+object in the arena unless explicitly instructed by the judges. Team members
+cannot start, reset, nor control their robot in any way (SSH, controller, etc.).
+1.10. There are no voluntary resets allowed. Once a robot is in the arena, it stays until
+the end of the match unless excessive damage occurs.
+1.11. In the event of a robot collision, a UO volunteer will remove the robots from the
+arena and hand it over to the two arena-allowed team members. Participating
+teams may then place their robots back within their starting zones. A collision is
+defined as two or more robots making physical contact for a period of longer
+than three seconds, counted automatically by the associated team judge.
+Physical contact can additionally occur if two robots are touching/attached to
+the same game scoring piece, e.g. two robots are magnetically attached to the
+same ball bearing.
+1.11.1. If a free position within the starting zone is available without any balls or
+other robots, it must be used. If there is no free position within the
+starting zone with no balls present, the balls will be removed by a UO
+volunteer, and randomly replaced within the arena. As the size of the
+starting zone is larger than competing robots, opposing teams' robots
+will not be moved nor penalised.
+1.11.2. Balls contained or physically attached to the robot will be carried back
+with the robot to its reset position. Contained or physically attached is
+defined as when lifted from the sides, do the balls stay with the robot. If
+human input is required to keep the ball in place, this does not count, and
+the ball will be left where it was.
+1.11.3. Participants may press the physical start switch on the robot to restart
+its running code during a collision reset. Participants are not allowed to
+make any modifications to the robot, to remotely connect to the robot, or
+make changes to their robot in any other way during collision resets or
+any other time.
+1.12. During a match, if any ball leaves the arena by any means, the ball will be
+returned to the arena as soon as possible and will be placed randomly by a UO
+volunteer. The match will not be paused when this happens. In the event of a ball
+launched into the air (aimed at a scoring net) but missed, it will be brought back
+to the arena randomly by a UO volunteer.
+1.13. After 180 seconds (and an additional five second grace period) into the match,
+the robots must come to a complete stop at any location of the arena. If a robot
+fails to stop automatically, UO volunteers will switch off the robot manually at
+once.
+1.14. A match may be terminated prematurely or may be restarted if all teams
+participating in a match agree unanimously. The clock will not be paused while
+this decision is made.
+1.15. The decisions of the judges and their interpretations of the rules are final.
+2. Scoring
+2.1. Definition:
+2.1.1. A Match is a single round of contest in which robots collect and move
+balls for at most 180 seconds.
+2.1.2. Game point is the raw score calculated at the end of a match to
+determine the match ranking of the participating teams in a single match.
+2.1.3. League point is the final score awarded to the participating teams at the
+end of a match based on the match ranking.
+2.1.4. League competition is a series of matches with four teams each. We will
+aim to make each team play the same number of matches. However, in
+cases of an odd number of competing teams, some teams will be chosen
+randomly to play extra matches which will not add to their total league
+points if such arrangement is necessary to form a match of four teams.
+2.1.5. Knockout competition is a series of one-versus-one matches for the top
+four highest ranking teams after all teams have taken part in the league
+competition. The result of the knockout competition determines the top 3
+winners.
+2.1.6. Ranking is based on the total cumulative league points obtained in league
+competition. Ranking is used to identify the four teams that are qualified
+for knockout competition. In the case of tied league points, cumulative
+game points will be used to determine the ranking.
+2.2. At the end of each match, game points will be calculated after the robots are
+stationary. Scoring pieces will be counted as where they were at the end of
+the match (the five second grace period only applies to robots coming to a
+stop). Points will be awarded to each participating team as follows:
+2.2.1. 3 points for a robot successfully “parking” by touching their scoring wall
+at the end of the match (Note: The robot must have moved from its
+starting position, and scoring wall refers to the coloured section of wall
+next to the robots scoring net).
+2.2.2. 4 points for each ping-pong ball within a team’s own net at the end of the
+match.
+2.2.3. 1 point is awarded for each magnetic ball bearing held by the robot. The
+bearing ball must be in direct contact with the surface of the robot, or
+another ball directly in contact with the robot.
+2.2.4. 2 points are awarded for each ball bearing within a team’s own net at the
+end of the match.
+2.3. League point will be awarded as follows at the end of each match:
+2.3.1. The four teams, ranking from the highest to the lowest in their game
+points, will be awarded 8,6,4,2 league points respectively.
+2.3.2. In the event of a draw, an average will be taken based on the rankings of
+where they would have placed(e.g. two teams both ranking 2nd are both
+awarded (6+4)/2=5 points).
+2.4. Knockout competition
+2.4.1. Only the top four teams in the league competition will advance to the
+knockout competition. In the event of tied league positions, the teams will
+be ranked by their cumulative game points in the league competition.
+2.4.2. Each match in the knockout competition involves two teams.
+2.4.2.1. Semifinal 1: 1st in the league vs 3rd in the league
+2.4.2.2. Semifinal 2: 2nd in the league vs 4th in the league
+2.4.2.3. Bronze medal match: loser of Semifinal 1 vs loser of Semifinal 2
+2.4.2.4. Final: winner of Semifinal 1 vs winner of Semifinal 2
+2.5. Final competition prizes will be awarded to the following teams:
+2.5.1. First place: Winner of Final
+2.5.2. Second place: Loser of Final
+2.5.3. Third place: Winner of bronze medal match
+2.5.4. Creativity and Technical Award: [SPONSORED PRIZE] Awarded to the
+robot that showcases the best creativity and complexity in the technology
+used or the design of the robot. Our Sponsors will be awarding this prize
+at the end of the Competition Day.
+2.5.5. Blogging Award: Awarded to a team that has shared their journey, their
+progress on social media or personal blog. We want to see you share
+about your experience participating in Unibots UK Competition and want
+to reward you for doing so! UO will award this prize at the end of the
+Competition Day.
+2.6. If there is a time constraint, the committee may amend the number of league
+matches or cancel knockout matches.
+3. Robot Specifications
+3.1. The robot should be completely autonomous without any real-time remote
+control capability. Team members must not remotely control their robot in any
+way (SSH, controller, etc.) during match play. All computer vision, machine
+learning, and any sort of processing which influences the robot in any way must
+be performed on the robot. For example, using a Raspberry Pi, Jetson Nano, or
+even a mobile phone acting as a ML processor.
+3.2. This is a non-contact sport and robots should implement collision avoidance
+capability. Robots intentionally designed to disrupt other robots' play, via direct
+contact or indirect contact, or by purposefully interacting with another team's
+scoring zone (e.g. removing balls from another team’s net), may be disqualified at
+a judge’s discretion.
+3.3. Before a match starts, the initial dimension of the robot must fit within a cube
+with 200mm internal sides. The robot may be able to extend to 300mm on all
+sides.
+3.4. Robots must be able to display a board with their team number. This board
+must be of a rigid material, or a 3D-printed plaque, and must be at least 50 x
+50 mm. If teams arrive at the competition without this display board, it will be
+provided to them, and must be included on the robot otherwise it will not be
+allowed within the arena.
+3.5. Robots must not intentionally damage anything – including the arena.
+3.6. The robot must pass a safety check by a UO volunteer prior to the start of the
+competition, otherwise it will not be allowed to enter the arena. Robot Safety
+requirements are detailed in Appendix C.
+3.7. If the judges deem the robot unsafe, they have the power to withdraw the
+robot from the game until amendments to fix the issue are made.
+3.8. Robots may be modified or repaired while not actively playing in a league
+match. Robots may not be modified during the knockout competition, but may
+be repaired if and only if components implemented during the league
+matches break. Matches will not be postponed for modifications or repairs.
+3.9. UO volunteers reserve the right to examine your robot software and hardware
+at any time.
+3.10. Any assistance from a UO volunteer may be provided without guarantees.
+4. Arena Specifications
+4.1. Arena
+4.1.1. The arena floor will be a 2000mm × 2000mm square, as shown in
+Appendix A, Figure 1. The tolerance of these two dimensions is ±50mm.
+4.1.2. The perimeter of the arena floor will be delimited by four raised walls,
+approximately 150mm tall. The four walls will be painted black, except for
+the scoring zone area. Each scoring zone wall is painted a different
+colour (Yellow, Orange, Purple or Green) and are labelled as North, East,
+South and West respectively. See Appendix A, Figures 2 and 3.
+4.1.3. The floor of the arena is painted white.
+4.2. Scoring Zones
+4.2.1. Each of the four walls have a scoring zone attached in the form of a
+scoring net. The net’s length is 800mm, placed from 600mm distance
+from the corner as shown in Appendix A, Figure 1.
+4.2.2. The nets are hanging from the walls on the outside and have a depth of
+200mm, and will have a height of -100mm, shown in Appendix A.
+4.2.3. The nets will be positioned to an accuracy of ±50mm.
+4.3. Balls
+4.3.1. There will be 40 balls in the arena: 16 ping-pong balls, 24 magnetic ball
+bearings. These will be randomly but approximately rotationally
+symmetric, placed in the play area.
+4.3.2. Ping-pong balls will be orange with a diameter of 40mm, and may have
+markings on them.
+4.3.3. Magnetic ball bearings are 20mm in diameter, and are made from a steel
+alloy (e.g. carbon steel), and weigh roughly 34g. The ball bearing is
+ferromagnetic: it can be pulled by magnets, but it does not act as a
+magnet on its own. For example:
+https://www.amazon.co.uk/sourcing-map-Bearing-Precision-Polished/dp
+/B0B5PM69P6
+4.4. Line following track
+4.4.1. A black tape of width 19mm will be used to form four (4)
+rounded-square line following tracks on the floor of the arena as shown
+in Appendix A, Figure 1.
+4.4.2. The black lines are aligned along the directions facing the centres of
+AprilTags as shown in Appendix A, Figure 1.
+4.5. Fiducials
+4.5.1. AprilTags will be used as fiducial markers which are pasted onto the four
+walls of the arena as shown in Appendix B, Figure 1.
+4.5.2. These tags have a dimension of 100x100mm.
+4.5.3. The distance between the tags are measured from the centre of each
+tag.
+4.5.4. Each tag will be placed such that the top of the tag area is in line with
+the top of the arena wall.
+4.5.5. Each tag has a unique ID. The IDs of the tag are numbered from 0 to 23
+as shown in Figure 1.
+4.5.5.1. North wall: 0 to 5
+4.5.5.2. East wall: 6 to 11
+4.5.5.3. South wall: 12 to 17
+4.5.5.4. West wall: 18 to 23
+5. Clarifications
+5.1. We welcome any feedback or suggestions to improve the rules!
+5.2. Requests for rule clarifications may be made on Unibots Discord, and this
+document will be updated if deemed necessary.
+5.3. Requests received within one week of the competition are unlikely to be
+processed.
+Appendix A
+Figure 1 The full arena with scoring nets and line following tracks
+Figure 2 Wall construction and scoring net depths. Arena wall depth will be defined shortly, once
+arena materials are agreed upon. Expect between 18mm - 20mm.
+Figure 3 3D model of arena showing scoring nets and colours
+Appendix B
+Figure 1 An example AprilTag 42 from the 36h11 family
+Appendix C
+Robot Safety Requirements
+These requirements exist as a minimum set of requirements that all robots must adhere to. All
+robots will be checked individually, and will be given a pass sticker once assessed.
+● The robot’s power switch must be easily accessible at all times – including
+throughout the game for UO volunteers to access. Without a visible physical power
+switch, the robot will not be allowed to compete.
+● If a robot makes use of Li-Po, Li-Ion, or other batteries with additional safety
+requirements, these must be followed. When not in use, they must be stored within
+fire-safe, or “Li-Po” storage bags. Additionally while charging, batteries must not be
+left unattended, and must be charged on a suitable surface, inside a fire-safe bag.
+● If the event is a multi-day event, robots may be allowed to be stored on the
+competition premises overnight, if and only if the battery is removed and safety
+taken from the premises. The Unibots Competition Organisers take no liability for
+robots stored within competition premises.
+● Batteries of any chemistry must be securely fixed to the robot using a removable
+mounting method (e.g. velcro, removable zip ties), such that they do not come loose
+during a match.
+● Batteries of any chemistry must be protected from accidental puncture from any
+robot, the arena, during transportation, and at all other times. This may be a simple
+rigid material shield around the battery, for example plastic.
+● Robots must be free of loose or dangling wiring, so that no other robot can become
+entangled.
+● Robots must be free of sharp edges, such that if a volunteer or team member picks
+the robot up they can be assured they will not be injured.
+● Robots must not include dangerous elements or “weapons” of any description, designed
+to disrupt the play of other robots. This is not limited to: air cannons, high speed
+spinning devices, any object intended to be released (e.g. darts, nets, shrouds, other
+than the game scoring pieces collected during play), or any flammable objects.
+● Robots implementing a launch system for balls must do so with precaution. During the
+safety check, UO volunteers will ask to see a demonstration of the system and its
+maximum capable power. If it is deemed excessive, teams must ensure that it is limited
+to a safe manner. Excessive may involve launching balls for a distance of over 2 meters,
+or at speeds which will cause injury when colliding with any arena-side participants or
+volunteers.
+● All participants and UO volunteers who are arena-side must wear safety goggles or their
+own glasses.
+

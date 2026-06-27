@@ -1,0 +1,39 @@
+# Install ROS 2 (ros_distro) + every dep listed in deploy/packages.apt.
+---
+- name: Add the ROS 2 apt signing key
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/ros/rosdistro/master/ros.key
+    dest: /usr/share/keyrings/ros-archive-keyring.gpg
+    mode: "0644"
+
+- name: Add the ROS 2 apt repository (Ubuntu 26.04)
+  ansible.builtin.apt_repository:
+    repo: >-
+      deb [arch={{ ansible_architecture | replace('aarch64','arm64') }}
+      signed-by=/usr/share/keyrings/ros-archive-keyring.gpg]
+      http://packages.ros.org/ros2/ubuntu {{ ansible_distribution_release }} main
+    filename: ros2
+    state: present
+
+- name: Load the apt package list from deploy/packages.apt
+  ansible.builtin.set_fact:
+    apt_packages: >-
+      {{ lookup('file', local_repo_root ~ '/deploy/packages.apt').splitlines()
+         | map('regex_replace', '#.*$', '')
+         | map('trim')
+         | select('match', '.+')
+         | map('regex_replace', '@ROS_DISTRO@', ros_distro)
+         | list }}
+  delegate_to: localhost
+  become: false
+
+- name: Install ROS 2 + build/runtime dependencies
+  ansible.builtin.apt:
+    name: "{{ apt_packages }}"
+    state: present
+    update_cache: true
+
+- name: Initialise rosdep
+  ansible.builtin.command: rosdep init
+  args:
+    creates: /etc/ros/rosdep/sources.list.d/20-default.list

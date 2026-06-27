@@ -71,3 +71,7 @@ $RECYCLE.BIN/
 .gz/
 
 generated_solver/
+
+# Deploy: build artifacts are attached to GitHub releases, not committed.
+deploy/artifacts/*.tar.gz
+deploy/cross-build/.work/

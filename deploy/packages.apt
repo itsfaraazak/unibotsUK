@@ -1,0 +1,42 @@
+# ============================================================================
+# deploy/packages.apt — apt build/runtime deps for Ubuntu 26.04 (aarch64).
+# ============================================================================
+# One package per line; '#' comments and blank lines ignored. The literal
+# token @ROS_DISTRO@ is substituted with the value from build.env (e.g. lyrical)
+# by both the Dockerfile and the Ansible 'ros' role. Edit freely on match day.
+# ----------------------------------------------------------------------------
+
+# ---- Build tooling -------------------------------------------------------
+build-essential
+cmake
+ninja-build
+git
+python3-colcon-common-extensions
+python3-rosdep
+python3-vcstool
+
+# ---- ROS 2 core + the packages this stack actually uses ------------------
+ros-@ROS_DISTRO@-ros-base
+ros-@ROS_DISTRO@-rclcpp
+ros-@ROS_DISTRO@-rclpy
+ros-@ROS_DISTRO@-geometry-msgs
+ros-@ROS_DISTRO@-nav-msgs
+ros-@ROS_DISTRO@-sensor-msgs
+ros-@ROS_DISTRO@-std-msgs
+ros-@ROS_DISTRO@-visualization-msgs
+ros-@ROS_DISTRO@-cv-bridge
+ros-@ROS_DISTRO@-ament-index-cpp
+ros-@ROS_DISTRO@-behaviortree-cpp
+ros-@ROS_DISTRO@-apriltag-ros
+ros-@ROS_DISTRO@-robot-localization
+
+# ---- Native libraries the C++ nodes link against -------------------------
+libeigen3-dev          # spatial_memory Kalman filter
+libopencv-dev          # camera + perception
+python3-opencv         # camera_node (Python, V4L2)
+libncnn-dev            # perception YOLO11n inference (NCNN)
+
+# ---- Hardware / camera I/O (Pi 5) ----------------------------------------
+v4l-utils              # camera device debugging
+python3-lgpio          # Pi 5 GPIO (motor/servo bridges)
+i2c-tools              # servo PWM over I2C

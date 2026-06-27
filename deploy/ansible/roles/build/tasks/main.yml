@@ -1,0 +1,37 @@
+# Sync source to the robot and run the shared, Pi5-optimized build.
+---
+- name: Sync the repository to the robot
+  ansible.posix.synchronize:
+    src: "{{ local_repo_root }}/"
+    dest: "{{ repo_dir }}/"
+    delete: false
+    rsync_opts:
+      - "--exclude=.git"
+      - "--exclude=unibots_ws/build"
+      - "--exclude=unibots_ws/install"
+      - "--exclude=unibots_ws/log"
+      - "--exclude=result"
+  when: sync_source | bool
+  become: false
+
+- name: Make the deploy scripts executable
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: "0755"
+  loop:
+    - "{{ repo_dir }}/deploy/build.sh"
+    - "{{ repo_dir }}/deploy/run.sh"
+
+- name: Build the workspace with Pi 5 max optimization (deploy/build.sh)
+  ansible.builtin.shell: |
+    set -o pipefail
+    WS="{{ repo_dir }}/unibots_ws" bash "{{ repo_dir }}/deploy/build.sh"
+  args:
+    executable: /bin/bash
+  become: false
+  register: build_out
+  changed_when: true
+
+- name: Show build tail
+  ansible.builtin.debug:
+    msg: "{{ build_out.stdout_lines[-12:] }}"

@@ -1,0 +1,19 @@
+[Unit]
+Description=Unibots UK 2026 match stack (native)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ ansible_user }}
+# RUNTIME_ENV lets run.sh load the rendered runtime.env.
+Environment=RUNTIME_ENV={{ repo_dir }}/deploy/runtime.env
+Environment=WS={{ repo_dir }}/unibots_ws
+ExecStart=/bin/bash {{ repo_dir }}/deploy/run.sh
+Restart=on-failure
+RestartSec=2
+# Robot must never auto-drive: the BT still gates on /match/start, this only
+# restarts a crashed process — it does NOT re-press the start button.
+
+[Install]
+WantedBy=multi-user.target
