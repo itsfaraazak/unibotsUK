@@ -2,7 +2,7 @@
 # deploy/packages.apt — apt build/runtime deps for Ubuntu 26.04 (aarch64).
 # ============================================================================
 # One package per line; '#' comments and blank lines ignored. The literal
-# token @ROS_DISTRO@ is substituted with the value from build.env (e.g. lyrical)
+# token lyrical is substituted with the value from build.env (e.g. lyrical)
 # by both the Dockerfile and the Ansible 'ros' role. Edit freely on match day.
 # ----------------------------------------------------------------------------
 
@@ -16,19 +16,19 @@ python3-rosdep
 python3-vcstool
 
 # ---- ROS 2 core + the packages this stack actually uses ------------------
-ros-@ROS_DISTRO@-ros-base
-ros-@ROS_DISTRO@-rclcpp
-ros-@ROS_DISTRO@-rclpy
-ros-@ROS_DISTRO@-geometry-msgs
-ros-@ROS_DISTRO@-nav-msgs
-ros-@ROS_DISTRO@-sensor-msgs
-ros-@ROS_DISTRO@-std-msgs
-ros-@ROS_DISTRO@-visualization-msgs
-ros-@ROS_DISTRO@-cv-bridge
-ros-@ROS_DISTRO@-ament-index-cpp
-ros-@ROS_DISTRO@-behaviortree-cpp
-ros-@ROS_DISTRO@-apriltag-ros
-ros-@ROS_DISTRO@-robot-localization
+ros-lyrical-ros-base
+ros-lyrical-rclcpp
+ros-lyrical-rclpy
+ros-lyrical-geometry-msgs
+ros-lyrical-nav-msgs
+ros-lyrical-sensor-msgs
+ros-lyrical-std-msgs
+ros-lyrical-visualization-msgs
+ros-lyrical-cv-bridge
+ros-lyrical-ament-index-cpp
+ros-lyrical-behaviortree-cpp
+ros-lyrical-apriltag-ros
+ros-lyrical-robot-localization
 
 # ---- Native libraries the C++ nodes link against -------------------------
 libeigen3-dev          # spatial_memory Kalman filter

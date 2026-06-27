@@ -49,7 +49,7 @@ Then start the match (§5). To **rebuild / update** this tarball from the laptop
 `deploy/cross-build/README.md` — one command: `deploy/cross-build/cross-build.sh`.
 
 ---
-
+USING THIS
 ## B. Source on the Pi — edit + rebuild over SSH (match-day edits)
 
 Put the repo on the Pi and build **natively** there. No Docker, no Nix, no emulation —
