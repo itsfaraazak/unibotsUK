@@ -2,11 +2,26 @@
 ## Rewritten for Artificial Potential Fields (APF) — smooth curved path support
 
 from gpiozero import Motor, Device
-from gpiozero.pins.lgpio import LGPIOFactory
+from gpiozero.pins.lgpio import LGPIOFactory, LGPIOPin
+from gpiozero.pins.local import LocalPiFactory
+import lgpio
 import time
 import math
 
-Device.pin_factory = LGPIOFactory()
+
+class RP1LGPIOFactory(LGPIOFactory):
+    """gpiozero 2.0.1 LGPIOFactory ignores its chip argument and
+    auto-detects gpiochip4 on the Pi 5. Newer Pi kernels expose the RP1
+    GPIO bank as gpiochip0 (gpiochip4 no longer exists), so the stock
+    factory raises lgpio.error: 'can not open gpiochip'. Force chip 0."""
+    def __init__(self, chip=0):
+        LocalPiFactory.__init__(self)
+        self._handle = lgpio.gpiochip_open(chip)
+        self._chip = chip
+        self.pin_class = LGPIOPin
+
+
+Device.pin_factory = RP1LGPIOFactory(chip=0)
 
 # ==========================================
 # TUNING CONSTANTS  ← adjust these values
