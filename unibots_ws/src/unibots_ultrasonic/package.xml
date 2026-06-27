@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>unibots_ultrasonic</name>
+  <version>0.1.0</version>
+  <description>
+    Ultrasonic (HC-SR04 style) proximity sensing for the Unibots UK 2026
+    holonomic mecanum robot. Drives an arbitrary, config-defined set of sensors
+    (front / sides / extensible to back), publishes a per-sensor sensor_msgs/Range,
+    a fused unibots_msgs/ObstacleArray for the APF / MPC collision-avoidance
+    pipeline, and a last-resort /safety/collision_warning hard-stop guard.
+
+    Supports rulebook section 3.2 (non-contact sport, collision avoidance
+    required). Hardware backend is gpiozero (lgpio pin factory, matching
+    hardware_motor_node); a mock backend allows off-Pi development and CI.
+  </description>
+  <maintainer email="itsfaraazak@gmail.com">Faraaz Ali Khan</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>unibots_msgs</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

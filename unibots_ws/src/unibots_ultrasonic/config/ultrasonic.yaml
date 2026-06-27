@@ -1,0 +1,75 @@
+# Ultrasonic proximity sensing — Unibots UK 2026 robot.
+#
+# Collision avoidance per rulebook 3.2 (non-contact sport). Drives an arbitrary
+# set of HC-SR04 style sensors; each entry below is fully independent, so adding
+# the rear sensor (or a 5th, 6th, ...) is just another block + its name in the
+# `sensors` list. Pins are BCM GPIO numbers (gpiozero / lgpio, same stack as
+# hardware_motor_node).
+#
+# Geometry frame: base_link. mount_x forward+, mount_y left+ (CCW),
+# mount_yaw_deg is the beam-centre bearing CCW+ from robot forward
+# (front=0, left=+90, right=-90, back=180) — same sign convention the APF/MPC
+# controllers use for camera obstacle bearings, so the two fuse cleanly.
+ultrasonic_node:
+  ros__parameters:
+    publish_rate_hz: 20.0
+
+    # Last-resort guard: any sensor below this (m) -> /safety/collision_warning = true.
+    # Keep tight; the robot's initial footprint is a 200 mm cube (rulebook 3.3).
+    collision_warn_distance_m: 0.12
+
+    # Sensors reading below this (m) are emitted on /ultrasonic/obstacles for the
+    # APF / MPC repulsion field (smooth avoidance, primary path).
+    obstacle_report_distance_m: 0.50
+
+    # Radius attributed to an ultrasonic-detected obstacle in the repulsion field.
+    obstacle_radius_m: 0.05
+
+    frame_id: base_link
+
+    # true -> mock backend (no GPIO) for off-Pi dev / CI; set false on the robot.
+    use_mock: false
+
+    # Active sensors. Add "back" here (and a block below) to enable the rear sensor.
+    sensors: [front, left, right]
+
+    front:
+      trigger_pin: 23
+      echo_pin: 24
+      mount_x: 0.10
+      mount_y: 0.0
+      mount_yaw_deg: 0.0
+      min_range_m: 0.02
+      max_range_m: 2.0
+      fov_deg: 15.0
+
+    left:
+      trigger_pin: 17
+      echo_pin: 27
+      mount_x: 0.0
+      mount_y: 0.08
+      mount_yaw_deg: 90.0
+      min_range_m: 0.02
+      max_range_m: 2.0
+      fov_deg: 15.0
+
+    right:
+      trigger_pin: 5
+      echo_pin: 6
+      mount_x: 0.0
+      mount_y: -0.08
+      mount_yaw_deg: -90.0
+      min_range_m: 0.02
+      max_range_m: 2.0
+      fov_deg: 15.0
+
+    # Rear sensor — wire it, then add "back" to the `sensors` list above to enable.
+    back:
+      trigger_pin: 13
+      echo_pin: 19
+      mount_x: -0.10
+      mount_y: 0.0
+      mount_yaw_deg: 180.0
+      min_range_m: 0.02
+      max_range_m: 2.0
+      fov_deg: 15.0
