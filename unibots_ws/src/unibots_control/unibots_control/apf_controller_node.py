@@ -28,6 +28,7 @@ from geometry_msgs.msg import PoseStamped, Quaternion, TwistStamped
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from rclpy.qos import QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
+from std_msgs.msg import String
 from unibots_msgs.msg import ObstacleArray
 
 # ----------------------------------------------------------------------------
@@ -49,6 +50,14 @@ TOPIC_ODOM: str = "/odom/filtered"
 TOPIC_TARGET: str = "/game/target"
 TOPIC_OBSTACLES: str = "/vision/obstacles"
 TOPIC_CMD_VEL: str = "/cmd_vel"
+TOPIC_GAME_STATE: str = "/game/state"
+
+# Game-state name (published by bt_game_node) that means "patrol/hunt for balls".
+# When we are in this state but have NO localization pose, we cannot do the
+# closed-loop map-frame patrol, so we fall back to an OPEN-LOOP scan (below) so
+# the robot still moves and sweeps the camera over the arena. Rulebook: the
+# robot must actively play the 180 s match — a frozen robot scores nothing.
+SEARCH_STATE: str = "SEARCH"
 
 
 def yaw_from_quaternion(q: Quaternion) -> float:
@@ -94,6 +103,15 @@ class ApfControllerNode(Node):
         self.declare_parameter("goal_tolerance", 0.05)
         self.declare_parameter("control_frequency", 20.0)
 
+        # --- Open-loop search (no-localization fallback) --------------------
+        # All in body frame. scan_fwd along +y (forward), scan_yaw about +z.
+        self.declare_parameter("scan_fwd", 0.18)        # m/s forward while advancing
+        self.declare_parameter("scan_yaw", 1.0)         # rad/s yaw while sweeping
+        self.declare_parameter("scan_advance_s", 1.5)   # seconds driving forward
+        self.declare_parameter("scan_rotate_s", 1.1)    # seconds rotating in place
+        # Treat /game/state as stale after this long (s) -> stop (BT died/idle).
+        self.declare_parameter("state_timeout_s", 1.5)
+
         self._k_att: float = self.get_parameter("k_att").value
         self._k_rep: float = self.get_parameter("k_rep").value
         self._influence: float = self.get_parameter("influence_radius").value
@@ -102,6 +120,11 @@ class ApfControllerNode(Node):
         self._max_omega: float = self.get_parameter("max_omega").value
         self._goal_tolerance: float = self.get_parameter("goal_tolerance").value
         self._control_freq: float = self.get_parameter("control_frequency").value
+        self._scan_fwd: float = self.get_parameter("scan_fwd").value
+        self._scan_yaw: float = self.get_parameter("scan_yaw").value
+        self._scan_advance_s: float = self.get_parameter("scan_advance_s").value
+        self._scan_rotate_s: float = self.get_parameter("scan_rotate_s").value
+        self._state_timeout_s: float = self.get_parameter("state_timeout_s").value
 
         # --- Runtime state ---------------------------------------------------
         self._current_pose: Optional[np.ndarray] = None   # [px, py, theta]
@@ -110,6 +133,11 @@ class ApfControllerNode(Node):
         # Latches "arrival" so we log "Goal reached" once on transition rather
         # than every control tick while holding. Cleared when a new goal arrives.
         self._goal_reached: bool = False
+        # Latest /game/state and when it arrived (for the open-loop scan).
+        self._game_state: Optional[str] = None
+        self._game_state_t: float = 0.0
+        # Wall-clock origin of the current scan cycle (advance->rotate->repeat).
+        self._scan_t0: Optional[float] = None
 
         # --- QoS: RELIABLE, depth 10 ----------------------------------------
         qos = QoSProfile(
@@ -123,6 +151,7 @@ class ApfControllerNode(Node):
         self.create_subscription(
             ObstacleArray, TOPIC_OBSTACLES, self._obstacles_cb, qos
         )
+        self.create_subscription(String, TOPIC_GAME_STATE, self._state_cb, qos)
 
         self._cmd_pub = self.create_publisher(TwistStamped, TOPIC_CMD_VEL, qos)
 
@@ -149,6 +178,11 @@ class ApfControllerNode(Node):
         self._goal = np.array([p.x, p.y, theta], dtype=float)
         self._goal_reached = False
 
+    def _state_cb(self, msg: String) -> None:
+        """Track the game state + arrival time, for the open-loop scan fallback."""
+        self._game_state = msg.data
+        self._game_state_t = self._now_s()
+
     def _obstacles_cb(self, msg: ObstacleArray) -> None:
         """Project ObstacleArray detections to world frame using bearing/distance.
 
@@ -170,11 +204,45 @@ class ApfControllerNode(Node):
     # ------------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------------
+    def _now_s(self) -> float:
+        """Current node clock time in seconds (honours use_sim_time)."""
+        return self.get_clock().now().nanoseconds * 1e-9
+
     def _publish_zero(self) -> None:
         """Publish a zero-velocity TwistStamped (safe stop)."""
         msg = TwistStamped()
         msg.header.stamp = self.get_clock().now().to_msg()
         self._cmd_pub.publish(msg)
+
+    def _publish_body_cmd(self, vx: float, vy: float, omega: float) -> None:
+        """Publish a body-frame velocity command (vx=strafe, vy=fwd, omega=CCW)."""
+        msg = TwistStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.twist.linear.x = float(np.clip(vx, -self._max_vx, self._max_vx))
+        msg.twist.linear.y = float(np.clip(vy, -self._max_vy, self._max_vy))
+        msg.twist.angular.z = float(np.clip(omega, -self._max_omega, self._max_omega))
+        self._cmd_pub.publish(msg)
+
+    def _open_loop_search(self) -> None:
+        """Drive a blind advance->rotate->repeat scan (no pose needed).
+
+        Guarantees the robot keeps moving and sweeps the camera over the arena
+        when localization is unavailable. Open-loop bumps into the 150 mm walls
+        are fine: the rotate phase reorients before the next advance, so the
+        robot works its way around the 2 m x 2 m arena and perception keeps
+        seeing fresh views.
+        """
+        now = self._now_s()
+        if self._scan_t0 is None:
+            self._scan_t0 = now
+        cycle = self._scan_advance_s + self._scan_rotate_s
+        phase = (now - self._scan_t0) % cycle
+        if phase < self._scan_advance_s:
+            # Advance straight forward (+y body), no rotation.
+            self._publish_body_cmd(0.0, self._scan_fwd, 0.0)
+        else:
+            # Rotate in place to sweep the camera across the arena.
+            self._publish_body_cmd(0.0, 0.0, self._scan_yaw)
 
     def _compute_force(self) -> np.ndarray:
         """Compute the resultant APF force in the WORLD frame.
@@ -210,8 +278,23 @@ class ApfControllerNode(Node):
     # ------------------------------------------------------------------------
     def _control_loop(self) -> None:
         """APF control tick (runs on the control-frequency timer)."""
-        # No goal or no pose -> publish zero.
-        if self._current_pose is None or self._goal is None:
+        # No localization pose: if the game is actively SEARCHing (and the BT is
+        # alive), keep moving via the open-loop scan instead of freezing. Any
+        # other state (IDLE / STOPPED / NAV_HOME / ...) has no safe blind action
+        # -> stop. This is what makes the robot MOVE during the match even when
+        # /odom/filtered never arrives.
+        if self._current_pose is None:
+            state_fresh = (self._now_s() - self._game_state_t) < self._state_timeout_s
+            if self._game_state == SEARCH_STATE and state_fresh:
+                self._open_loop_search()
+            else:
+                self._publish_zero()
+            return
+        # Pose available again -> reset the scan cycle so it restarts cleanly.
+        self._scan_t0 = None
+
+        # No goal -> publish zero.
+        if self._goal is None:
             self._publish_zero()
             return
 

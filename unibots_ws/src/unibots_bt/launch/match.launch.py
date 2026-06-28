@@ -154,6 +154,17 @@ def generate_launch_description() -> LaunchDescription:
         condition=IfCondition(hardware),
     )
 
+    # Physical START button (rulebook 1.9) -> latched /match/start. Only with
+    # real hardware; in sim/dev publish /match/start manually.
+    match_button = Node(
+        package="unibots_control",
+        executable="match_button_node",
+        name="match_button_node",
+        output="screen",
+        parameters=[sim_time_param],
+        condition=IfCondition(hardware),
+    )
+
     return LaunchDescription(args + [
         camera_node,
         perception_node,
@@ -163,4 +174,5 @@ def generate_launch_description() -> LaunchDescription:
         localization_stack,
         hardware_motor,
         hardware_servo,
+        match_button,
     ])

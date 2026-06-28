@@ -178,3 +178,12 @@ cd unibots_ws && colcon build --packages-select unibots_perception
 - The new BT capture is **radius-based** (`capture_radius_m`), not ToF/coast — the old
   `/sensors/tof_distance` blind-spot capture and the in-place yaw search were dropped
   (the holonomic controller faces its travel direction, so SEARCH is a moving patrol).
+- **No wheel odometry / IMU on the real robot** — the EKF (`ekf.yaml` `odom0:/odom`)
+  gets nothing; `/odom/filtered` only updates when an AprilTag is seen, which used to
+  freeze the bot at start (no pose → controllers publish zero → motors never spin).
+  Worked around by an **open-loop SEARCH bootstrap** in the MPC/APF controllers
+  (drives a blind scan on `/cmd_vel` while `/game/state == "SEARCH"` and pose is
+  missing, so the camera can find a tag and seed localization). Real fix = add
+  encoders→`/odom` or an IMU. Full write-up: `docs/LOCALIZATION_ODOM_ISSUE.md`.
+- Physical start button: `match_button_node` (GPIO 4, `unibots_control`) latches
+  `/match/start`; launched with `hardware:=true`.

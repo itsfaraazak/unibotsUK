@@ -139,12 +139,14 @@ public:
     collected_pub_->publish(m);
   }
 
-  // Publish state name only when it changes — cheap, clean logs.
+  // Publish the current state every tick as a heartbeat (consumers such as the
+  // controller's open-loop-search fallback use its freshness to know the BT is
+  // alive), but only LOG on a transition — cheap, clean logs.
   void publishState(const std::string& s) {
-    if (s == cur_state_) return;
-    cur_state_ = s;
     String m; m.data = s;
     state_pub_->publish(m);
+    if (s == cur_state_) return;
+    cur_state_ = s;
     RCLCPP_INFO(node_->get_logger(), "State → %s  [t=%.1fs  held=%d]",
                 s.c_str(), elapsed_s(), balls_held);
   }
